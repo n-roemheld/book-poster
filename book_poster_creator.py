@@ -23,7 +23,7 @@ def main() -> None:
     # Only books read after this date are included
     START_DATE = datetime(year=2015, month=12, day=31, tzinfo=timezone.utc)
 
-    design_parameters = PosterParameter(dpi=100, poster_size_cm=(60,90), min_distance_cm=(.6,1), max_cover_height_cm=6.3)
+    design_parameters = PosterParameter(dpi=80, poster_size_cm=(60,90), min_distance_cm=(.6,1), max_cover_height_cm=6.3)
     create_poster_from_rss(rss_urls, START_DATE, design_parameters)
 
 @dataclass
@@ -191,12 +191,10 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
         poster.paste(cover_image, cover_position)
 
         # Add read date below the cover
-        if book['user_read_at'] == '': # no read date entered
-            read_date = str(datetime(year=1900, month=1, day=1, tzinfo=timezone.utc).date())
-        else:
+        if book['user_read_at'] != '':
             read_date = str(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').date())
-        text_position = calc_text_position(params, draw, row, col, read_date)
-        draw.text(text_position, read_date, fill="black", font=params.font, align='center')
+            text_position = calc_text_position(params, draw, row, col, read_date)
+            draw.text(text_position, read_date, fill="black", font=params.font, align='center')
 
     # Save the poster
     print('Saving Poster...')
