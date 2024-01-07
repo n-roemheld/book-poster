@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import urllib
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+import os
 from os.path import exists
 import warnings
 from dataclasses import dataclass, field
@@ -116,7 +117,7 @@ def create_poster_from_rss(rss_urls: list, START_DATE: datetime, design_paramete
 
 def get_cover_filename(book: np.array, PATH_TO_COVERS='./covers') -> str:
     # Path to the cover image of the book
-    return f'{PATH_TO_COVERS}/{book['book_id']}.jpg'
+    return f'{PATH_TO_COVERS}/{book["book_id"]}.jpg'
 
 def load_feeds(rss_urls: list) -> np.array:
     # Downloading the RSS feed and converting it to an array of books
@@ -151,12 +152,14 @@ def filter_books(START_DATE: datetime, books: np.array, read_at_list: np.array) 
     books = books[start_index:]
     return books
 
-def download_covers(books: np.array, COVER_URL_KEY: str ='book_large_image_url') -> None:
+def download_covers(books: np.array, COVER_URL_KEY: str ='book_large_image_url', PATH_TO_COVERS='./covers') -> None:
     # Downloading the book covers from goodreads (if not downloaded already)
     print(f"Downloading missing covers of {int(books.size)} books...")
+    if not exists(PATH_TO_COVERS):
+        os.mkdir(PATH_TO_COVERS)
     for book in books:
         if not exists(get_cover_filename(book)):
-            urllib.request.urlretrieve(book[COVER_URL_KEY], get_cover_filename(book))
+            urllib.request.urlretrieve(book[COVER_URL_KEY], get_cover_filename(book, PATH_TO_COVERS))
     print('Done!')
 
 def create_poster_image(books: np.array, params: PosterParameter) -> None:
@@ -201,7 +204,7 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
     poster.save(params.output_file)
     print('Done!')
 
-def resize_cover_image(max_cover_size, opt_aspect_ratio, cover_image) -> tuple[Image, tuple[int,int]]:
+def resize_cover_image(max_cover_size, opt_aspect_ratio, cover_image) -> tuple[Image.Image, tuple[int,int]]:
     # Resampling the cover images with the appropriate resolution
     H = 0 # horizontal index
     V = 1 # vertical intex
