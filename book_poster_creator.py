@@ -25,28 +25,35 @@ def main() -> None:
     # Only books read after this date are included
     START_DATE = datetime(year=config.startdate_year, month=config.startdate_month, day=config.startdate_day, tzinfo=timezone.utc)
 
-    design_parameters = PosterParameter(dpi                    = config.dpi, 
-                                        poster_size_cm         = config.poster_size_cm, 
-                                        min_distance_cm        = config.min_distance_cm, 
-                                        max_cover_height_cm    = config.max_cover_height_cm, 
-                                        default_aspect_ratio   = config.default_aspect_ratio, 
-                                        title_height_cm        = config.title_height_cm, 
-                                        output_file            = config.output_file,
-                                        font_str               = config. font_str)
+    design_parameters = PosterParameter(dpi                         = config.dpi, 
+                                        poster_size_cm              = config.poster_size_cm, 
+                                        min_distance_cm             = config.min_distance_cm, 
+                                        max_cover_height_cm         = config.max_cover_height_cm, 
+                                        default_aspect_ratio        = config.default_aspect_ratio, 
+                                        title_height_cm             = config.title_height_cm, 
+                                        output_file                 = config.output_file,
+                                        font_str                    = config.font_str,
+                                        year_shading                = config.year_shading,
+                                        year_shading_color1_hex     = config.year_shading_color1_hex,
+                                        year_shading_color2_hex     = config.year_shading_color2_hex
+                                        )
     create_poster_from_rss(rss_urls, START_DATE, design_parameters)
 
 @dataclass
 class PosterParameter:
     '''Class for handling some poster layout parameters'''
     # Initialized by constructor
-    dpi:                    int = 100
-    poster_size_cm:         tuple[float,float] = (60,90)
-    min_distance_cm:        tuple[float,float] = (.6,1)
-    max_cover_height_cm:    float = 6.3
-    default_aspect_ratio:   float = .6555
-    title_height_cm:        float = 0 # space for a possible title
-    output_file:            str = "poster.jpg"
-    font_str:               str = "arial.ttf"
+    dpi:                    int                 = 100
+    poster_size_cm:         tuple[float,float]  = (60,90)
+    min_distance_cm:        tuple[float,float]  = (.6,1)
+    max_cover_height_cm:    float               = 6.3
+    default_aspect_ratio:   float               = .6555
+    title_height_cm:        float               = 0 # space for a possible title
+    output_file:            str                 = "poster.jpg"
+    font_str:               str                 = "arial.ttf"
+    year_shading:           bool                = True
+    year_shading_color1_hex:str                 = "#CCCCCC"
+    year_shading_color2_hex:str                 = "#FFFFFF"
     # Computed from other attributes via post_init
     poster_size:            tuple[int,int]          = field(init=False)
     max_cover_size_cm:      tuple[float,float]      = field(init=False)
@@ -186,7 +193,8 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
     draw = ImageDraw.Draw(poster)
 
     # Adding shading for the years to the poster
-    shade_years(books, params, draw)
+    if params.year_shading:
+        shade_years(books, params, draw)
 
     # Populate the poster with book covers and titles
     print('Adding books to poster...')
@@ -269,10 +277,10 @@ def shade_years(books, params, draw):
                 start_h, start_v, end_h, end_v = get_shading_rectangle_corners(params, H, V, cover_position_start, cover_position_end)
 
                 if y % 2 == 0:
-                    color = "#CCCCCC"
-                    draw.rectangle(((start_h, start_v), (end_h, end_v)), fill=color, outline=None)
+                    color = params.year_shading_color1_hex
                 else:
-                    color = "#FFFFFF"
+                    color = params.year_shading_color2_hex
+                draw.rectangle(((start_h, start_v), (end_h, end_v)), fill=color, outline=None)
 
 def get_shading_rectangle_corners(params, H, V, cover_position_start, cover_position_end):
     start_h = cover_position_start[H] - round(params.min_distance[H] / 2.)
