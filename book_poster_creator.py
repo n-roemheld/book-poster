@@ -7,6 +7,7 @@ import os
 from os.path import exists
 import warnings
 from dataclasses import dataclass, field
+import poster_config as config
 
 def main() -> None:
     # List of RSS-feeds to use
@@ -22,9 +23,16 @@ def main() -> None:
         rss_urls = [line for line in f.readlines()]
 
     # Only books read after this date are included
-    START_DATE = datetime(year=2015, month=12, day=31, tzinfo=timezone.utc)
+    START_DATE = datetime(year=config.startdate_year, month=config.startdate_month, day=config.startdate_day, tzinfo=timezone.utc)
 
-    design_parameters = PosterParameter(dpi=80, poster_size_cm=(60,90), min_distance_cm=(.6,1), max_cover_height_cm=6.3)
+    design_parameters = PosterParameter(dpi                    = config.dpi, 
+                                        poster_size_cm         = config.poster_size_cm, 
+                                        min_distance_cm        = config.min_distance_cm, 
+                                        max_cover_height_cm    = config.max_cover_height_cm, 
+                                        default_aspect_ratio   = config.default_aspect_ratio, 
+                                        title_height_cm        = config.title_height_cm, 
+                                        output_file            = config.output_file,
+                                        font_str               = config. font_str)
     create_poster_from_rss(rss_urls, START_DATE, design_parameters)
 
 @dataclass
@@ -175,11 +183,12 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
     # Populate the poster with book covers and titles
     print('Adding books to poster...')
     if books.size > params.n_books_grid_total:
-        warnings.warn(f"Warning: The current poster grid only supports {params.n_books_grid}. {books.size - params.n_books_grid_total} books are not included.", DeprecationWarning)
+        warnings.warn(f"Warning: The current poster grid only supports {params.n_books_grid_total} books. {books.size - params.n_books_grid_total} books are not included.", DeprecationWarning)
+        # Removing the first books to only include the books read last in the poster.
+        books = books[-params.n_books_grid_total:]
     for i, book in enumerate(books):
         # Check if the grid is already full
-        if i + 1 > params.n_books_grid_total:
-            break
+        assert (i + 1 <= params.n_books_grid_total), "More books than the poster can handle!"
 
         # Grid position of the current cover
         row = i // params.n_books_grid[H]
@@ -192,6 +201,7 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
         # Adding the cover to the poster
         cover_position = calc_cover_position(params, row, col, cover_image.size)
         poster.paste(cover_image, cover_position)
+        draw.rectangle((cover_position, tuple(cover_position[i] + cover_image.size[i] for i in range(2))), fill=None, width=int(cover_image.size[0]/200.), outline="black")
 
         # Add read date below the cover
         if book['user_read_at'] != '':
