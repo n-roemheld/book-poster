@@ -20,5 +20,5 @@ font_str:               str = "arial.ttf"
 # Start date
 # Only books read after this date are included  
 startdate_year:         int = 2015
-startdate_month:        int = 12
-startdate_day:          int = 31   
+startdate_month:        int = 7
+startdate_day:          int = 27

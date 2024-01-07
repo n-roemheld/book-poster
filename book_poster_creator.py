@@ -175,17 +175,21 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
     H = 0 # horizontal index
     V = 1 # vertical intex
 
+    if books.size > params.n_books_grid_total:
+        warnings.warn(f"Warning: The current poster grid only supports {params.n_books_grid_total} books. {books.size - params.n_books_grid_total} books are not included.", DeprecationWarning)
+        # Removing the first books to only include the books read last in the poster.
+        books = books[-params.n_books_grid_total:]
+
     # Create a blank poster
     print('Creating poster...')
     poster = Image.new("RGB", params.poster_size, "white")
     draw = ImageDraw.Draw(poster)
 
+    # Adding shading for the years to the poster
+    shade_years(books, params, draw)
+
     # Populate the poster with book covers and titles
     print('Adding books to poster...')
-    if books.size > params.n_books_grid_total:
-        warnings.warn(f"Warning: The current poster grid only supports {params.n_books_grid_total} books. {books.size - params.n_books_grid_total} books are not included.", DeprecationWarning)
-        # Removing the first books to only include the books read last in the poster.
-        books = books[-params.n_books_grid_total:]
     for i, book in enumerate(books):
         # Check if the grid is already full
         assert (i + 1 <= params.n_books_grid_total), "More books than the poster can handle!"
@@ -201,6 +205,8 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
         # Adding the cover to the poster
         cover_position = calc_cover_position(params, row, col, cover_image.size)
         poster.paste(cover_image, cover_position)
+
+        # Additing an outline to the cover
         draw.rectangle((cover_position, tuple(cover_position[i] + cover_image.size[i] for i in range(2))), fill=None, width=int(cover_image.size[0]/200.), outline="black")
 
         # Add read date below the cover
@@ -208,7 +214,7 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
             read_date = str(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').date())
             text_position = calc_text_position(params, draw, row, col, read_date)
             draw.text(text_position, read_date, fill="black", font=params.font, align='center')
-
+    
     # Save the poster
     print('Saving Poster...')
     poster.save(params.output_file)
@@ -244,6 +250,77 @@ def calc_text_position(params: PosterParameter, draw: ImageDraw, row: int, col: 
     text_position_v = round(params.title_height_cm + params.margins[V] + row * (params.max_cover_size[V] + params.min_distance[V]) + params.max_cover_size[V]*1 + params.fontsize/4)
     text_position = (text_position_h, text_position_v)
     return text_position
+
+
+def shade_years(books, params, draw):
+    H = 0 # horizontal index
+    V = 1 # vertical intex
+    years, row_first_book_in_year, col_first_book_in_year = get_grid_index_of_first_books_in_years(books, params)
+    for y in range(years.size-1):
+        for row in range(row_first_book_in_year[y], row_first_book_in_year[y+1] + 1):
+            start_col, end_col = get_grid_col_indices_in_row(row, y, params, row_first_book_in_year, col_first_book_in_year)
+            # print(f'year index {y}, row {row}, start_col {start_col}, end_col {end_col}')
+            if ((row == row_first_book_in_year[y+1]) and (end_col == params.n_books_grid[H] - 1)) or (row >= params.n_books_grid[V]):
+                continue
+            else:
+                cover_position_start = calc_cover_position(params, row, start_col, params.max_cover_size)
+                cover_position_end = calc_cover_position(params, row, end_col, params.max_cover_size)
+                # start_pos = tuple(cover_position[])
+                start_h, start_v, end_h, end_v = get_shading_rectangle_corners(params, H, V, cover_position_start, cover_position_end)
+
+                if y % 2 == 0:
+                    color = "#CCCCCC"
+                    draw.rectangle(((start_h, start_v), (end_h, end_v)), fill=color, outline=None)
+                else:
+                    color = "#FFFFFF"
+
+def get_shading_rectangle_corners(params, H, V, cover_position_start, cover_position_end):
+    start_h = cover_position_start[H] - round(params.min_distance[H] / 2.)
+    start_v = cover_position_start[V] - round(params.min_distance[V] / 3.)
+    end_h   = cover_position_end[H] + params.max_cover_size[H] + round(params.min_distance[H] / 2.)
+    end_v   = cover_position_end[V] + params.max_cover_size[V] + round(params.min_distance[V] * 2/3.)
+    return start_h,start_v,end_h,end_v
+
+def get_grid_col_indices_in_row(row, y, params, row_first_book_in_year, col_first_book_in_year):
+    H = 0 # horizontal index
+    if row == row_first_book_in_year[y]:
+        start_col = col_first_book_in_year[y]
+    else:
+        start_col = 0
+    if row == row_first_book_in_year[y+1] and start_col < col_first_book_in_year[y+1]:
+        end_col = col_first_book_in_year[y+1] - 1
+    else:
+        end_col = params.n_books_grid[H] - 1
+    return start_col,end_col
+
+def get_grid_index_of_first_books_in_years(books, params):
+    H = 0 # horizontal index
+    years = [int(datetime.strptime(books[0]['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').year),]
+    row_first_book_in_year = [0,]
+    col_first_book_in_year = [0,]
+    for b, book in enumerate(books):
+        if b == 0:
+            continue
+        current_year = int(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').year)
+        if years[-1] < current_year:
+            years.append(current_year)
+            # Grid position of the current cover
+            row = b // params.n_books_grid[H]
+            col = b % params.n_books_grid[H]
+            row_first_book_in_year.append(row)
+            col_first_book_in_year.append(col)
+    # Dummy for end of grid
+    b = b + 1
+    years.append(current_year+1)
+    row = (b) // params.n_books_grid[H]
+    col = (b) % params.n_books_grid[H]
+    row_first_book_in_year.append(row)
+    col_first_book_in_year.append(col)
+    # np array conversion
+    years = np.array(years, dtype=int)
+    row_first_book_in_year = np.array(row_first_book_in_year, dtype=int)
+    col_first_book_in_year = np.array(col_first_book_in_year, dtype=int)
+    return years,row_first_book_in_year,col_first_book_in_year
 
 if __name__ == '__main__':
     main()
