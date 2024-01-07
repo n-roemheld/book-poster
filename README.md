@@ -12,4 +12,3 @@ This is annoying but necessary since the RSS export only supports upto 100 books
 If you want to use the 100 books you reast last, you can add '&sort=user_read_at' to the end of the RSS URL.
 
 The other parameters of the poster can be changed in the poster_cofig.py file.
-![grafik](https://github.com/n-roemheld/book-poster/assets/57660684/e866df85-e8c6-4c4f-8508-b8eeae1812f9)
