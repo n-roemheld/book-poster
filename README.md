@@ -1,6 +1,6 @@
 # book-poster
 Creates a poster with the book covers from your 'read' shelf on goodreads.com with your 'read' date printed beneath each cover.
-![grafik](https://github.com/n-roemheld/book-poster/poster_test.jpg)
+![grafik](https://raw.githubusercontent.com/n-roemheld/book-poster/main/poster_test.jpg)
 
 # How to use
 This tool is based on the goodreads feature to export your shelves as RSS feeds. You can find the button to get the URL for the RSS feed at the bottom of the shelf.
