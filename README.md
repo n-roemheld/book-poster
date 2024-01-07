@@ -1,4 +1,4 @@
-# book-poster
+# Create a Poster of Read Books from Goodreads
 Creates a poster with the book covers from your 'read' shelf on goodreads.com with your 'read' date printed beneath each cover.
 ![grafik](https://raw.githubusercontent.com/n-roemheld/book-poster/main/poster_test.jpg)
 
