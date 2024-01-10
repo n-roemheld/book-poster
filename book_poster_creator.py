@@ -40,7 +40,8 @@ def main() -> None:
                                         background_color_hex        = config.background_color_hex,
                                         year_shading                = config.year_shading,
                                         year_shading_color1_hex     = config.year_shading_color1_hex,
-                                        year_shading_color2_hex     = config.year_shading_color2_hex
+                                        year_shading_color2_hex     = config.year_shading_color2_hex,
+                                        separator_width_factor      = config.separator_width_factor
                                         )
     create_poster_from_rss(rss_urls, START_DATE, design_parameters)
 
@@ -56,7 +57,7 @@ class Dimensions_cm(NamedTuple):
 class PosterParameters:
     '''Class for handling poster layout parameters'''
     # Initialized by constructor
-    dpi:                    int                 = 100
+    dpi:                    int                 = 208
     poster_size_cm:         Dimensions_cm       = (60,90)
     min_distance_cm:        Dimensions_cm       = (.6,1)
     max_cover_height_cm:    float               = 6.3
@@ -68,6 +69,7 @@ class PosterParameters:
     year_shading:           bool                = True
     year_shading_color1_hex:str                 = "#CCCCCC"
     year_shading_color2_hex:str                 = "#FFFFFF"
+    separator_width_factor: float               = 1/40. # width of the separator line in the book grid
     # Computed from other attributes via post_init
     poster_size:            Dimensions_pixel        = field(init=False)
     max_cover_size_cm:      Dimensions_cm           = field(init=False)
@@ -104,8 +106,8 @@ class PosterParameters:
         self.n_books_grid_total = self.n_books_grid[H] * self.n_books_grid[V]
 
     def convert_cm_to_pixel(self, values_cm):
-        cm_to_pixel_factor = self.dpi * 2.54
-        if isinstance(values_cm, (tuple, list)):
+        cm_to_pixel_factor = self.dpi / 2.54
+        if isinstance(values_cm, (tuple, list, NamedTuple)):
             values_pix = [round(v_cm * cm_to_pixel_factor) for v_cm in values_cm]
         else:  # scalar
             values_pix = round(values_cm * cm_to_pixel_factor)
@@ -220,7 +222,7 @@ def create_poster_image(books: np.ndarray, params: PosterParameters) -> None:
         poster.paste(cover_image, cover_position)
 
         # Additing an outline to the cover
-        draw.rectangle((cover_position, tuple(cover_position[i] + cover_image.size[i] for i in range(2))), fill=None, width=int(cover_image.size[0]/200.), outline="black")
+        draw.rectangle((cover_position, tuple(cover_position[i] + cover_image.size[i] for i in range(2))), fill=None, width=int(cover_image.size[H]/200.), outline="black")
 
         # Add read date below the cover
         if book['user_read_at'] != '':
@@ -243,11 +245,11 @@ def resize_cover_image(params: PosterParameters, cover_image: Image.Image) -> tu
     cover_image = cover_image.resize(cover_image_size, Image.BICUBIC)
     return cover_image
 
-def calc_cover_position(params: PosterParameters, row: int, col: int, image_size: tuple[int,int]) -> tuple[int,int]:
+def calc_cover_position(params: PosterParameters, row: int, col: int, image_size: tuple[int,int], offset: int = 0) -> tuple[int,int]:
     '''Calculating the position where the next cover is inserted'''
     pos_h = round(params.margins[H] + col * (params.max_cover_size[H] + params.min_distance[H]) + (params.max_cover_size[H]-image_size[H])/2)
     pos_v = round(params.title_height_cm + params.margins[V] + row * (params.max_cover_size[V] + params.min_distance[V]) + (params.max_cover_size[V]-image_size[V])/2)
-    cover_position = (pos_h, pos_v)
+    cover_position = (pos_h + offset, pos_v + offset)
     return cover_position
 
 def calc_text_position(params: PosterParameters, draw: ImageDraw, row: int, col: int, read_date: str) -> tuple[int,int]:
@@ -260,6 +262,10 @@ def calc_text_position(params: PosterParameters, draw: ImageDraw, row: int, col:
 
 
 def shade_years(books: np.ndarray, params: PosterParameters, draw: ImageDraw) -> None:
+    if params.separator_width_factor == 0:
+        half_separator_width = 0
+    else:
+        half_separator_width = int(params.max_cover_size[H]*params.separator_width_factor/2.)+1
     years, row_first_book_in_year, col_first_book_in_year = get_grid_index_of_first_books_in_years(books, params)
     for y in range(years.size-1):
         for row in range(row_first_book_in_year[y], row_first_book_in_year[y+1] + 1):
@@ -268,8 +274,8 @@ def shade_years(books: np.ndarray, params: PosterParameters, draw: ImageDraw) ->
             if ((row == row_first_book_in_year[y+1]) and (end_col == params.n_books_grid[H] - 1)) or (row >= params.n_books_grid[V]):
                 continue
             else:
-                cover_position_start = calc_cover_position(params, row, start_col, params.max_cover_size)
-                cover_position_end = calc_cover_position(params, row, end_col, params.max_cover_size)
+                cover_position_start = calc_cover_position(params, row, start_col, params.max_cover_size, half_separator_width)
+                cover_position_end = calc_cover_position(params, row, end_col, params.max_cover_size, -half_separator_width)
                 # start_pos = tuple(cover_position[])
                 start_h, start_v, end_h, end_v = get_shading_rectangle_corners(params, cover_position_start, cover_position_end)
 

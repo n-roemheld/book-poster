@@ -1,7 +1,7 @@
 
 ## Poster layout parameters
 # Image DPI determines resolution and file size
-dpi:                    int = 100
+dpi:                    int = 208
 # Poster size in cm (horizontal, vertical)
 poster_size_cm:         tuple[float,float] = (60,90)
 # (Minimum) distance between the book covers in cm (horizontal, vertical)
@@ -22,6 +22,8 @@ background_color_hex:   str = "#FFFFFF"
 year_shading:           bool = True
 year_shading_color1_hex:str = "#DDDDDD"
 year_shading_color2_hex:str = "#BBBBBB"
+# Controls the width of the separator line in the book grid. Factor of the max cover width.
+separator_width_factor: float = 1/40.
 
 # Start date
 # Only books read after this date are included  
