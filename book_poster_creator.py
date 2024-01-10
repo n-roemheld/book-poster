@@ -1,13 +1,17 @@
-import feedparser
+import warnings
 from datetime import datetime, timezone
+import os
+from os.path import exists
+from dataclasses import dataclass, field
+from typing import NamedTuple
 import urllib
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-import os
-from os.path import exists
-import warnings
-from dataclasses import dataclass, field
+import feedparser
 import poster_config as config
+
+H = 0 # horizontal index
+V = 1 # vertical intex
 
 def main() -> None:
     # List of RSS-feeds to use
@@ -25,7 +29,7 @@ def main() -> None:
     # Only books read after this date are included
     START_DATE = datetime(year=config.startdate_year, month=config.startdate_month, day=config.startdate_day, tzinfo=timezone.utc)
 
-    design_parameters = PosterParameter(dpi                         = config.dpi, 
+    design_parameters = PosterParameters(dpi                        = config.dpi, 
                                         poster_size_cm              = config.poster_size_cm, 
                                         min_distance_cm             = config.min_distance_cm, 
                                         max_cover_height_cm         = config.max_cover_height_cm, 
@@ -33,34 +37,44 @@ def main() -> None:
                                         title_height_cm             = config.title_height_cm, 
                                         output_file                 = config.output_file,
                                         font_str                    = config.font_str,
+                                        background_color_hex        = config.background_color_hex,
                                         year_shading                = config.year_shading,
                                         year_shading_color1_hex     = config.year_shading_color1_hex,
                                         year_shading_color2_hex     = config.year_shading_color2_hex
                                         )
     create_poster_from_rss(rss_urls, START_DATE, design_parameters)
 
+class Dimensions_pixel(NamedTuple):
+    width: int
+    height: int
+
+class Dimensions_cm(NamedTuple):
+    width: float
+    height: float
+
 @dataclass
-class PosterParameter:
-    '''Class for handling some poster layout parameters'''
+class PosterParameters:
+    '''Class for handling poster layout parameters'''
     # Initialized by constructor
     dpi:                    int                 = 100
-    poster_size_cm:         tuple[float,float]  = (60,90)
-    min_distance_cm:        tuple[float,float]  = (.6,1)
+    poster_size_cm:         Dimensions_cm       = (60,90)
+    min_distance_cm:        Dimensions_cm       = (.6,1)
     max_cover_height_cm:    float               = 6.3
     default_aspect_ratio:   float               = .6555
     title_height_cm:        float               = 0 # space for a possible title
     output_file:            str                 = "poster.jpg"
     font_str:               str                 = "arial.ttf"
+    background_color_hex:   str                 = "#FFFFFF"
     year_shading:           bool                = True
     year_shading_color1_hex:str                 = "#CCCCCC"
     year_shading_color2_hex:str                 = "#FFFFFF"
     # Computed from other attributes via post_init
-    poster_size:            tuple[int,int]          = field(init=False)
-    max_cover_size_cm:      tuple[float,float]      = field(init=False)
-    max_cover_size:         tuple[int,int]          = field(init=False)
-    min_distance:           tuple[int,int]          = field(init=False)
+    poster_size:            Dimensions_pixel        = field(init=False)
+    max_cover_size_cm:      Dimensions_cm           = field(init=False)
+    max_cover_size:         Dimensions_pixel        = field(init=False)
+    min_distance:           Dimensions_pixel        = field(init=False)
     n_books_grid:           tuple[int,int]          = field(init=False)
-    margins:                tuple[int,int]          = field(init=False)
+    margins:                Dimensions_pixel        = field(init=False)
     opt_aspect_ratio:       float                   = field(init=False)
     fontsize:               int                     = field(init=False)
     font:                   ImageFont.FreeTypeFont  = field(init=False)
@@ -68,18 +82,18 @@ class PosterParameter:
 
     def __post_init__(self):
         # Setup poster size
-        self.poster_size = self.convert_cm_to_pixel(self.poster_size_cm, self.dpi) # in pixel, (horizontal,vertical)
+        self.poster_size = self.convert_cm_to_pixel(self.poster_size_cm) # in pixel, (horizontal,vertical)
         
         # Setup cover size
         self.max_cover_size_cm = (self.default_aspect_ratio * self.max_cover_height_cm, self.max_cover_height_cm)
-        self.max_cover_size = self.convert_cm_to_pixel(self.max_cover_size_cm, self.dpi) # in pixel, (horizontal,vertical)
+        self.max_cover_size = self.convert_cm_to_pixel(self.max_cover_size_cm) # in pixel, (horizontal,vertical)
         
         # Setup cover spacing
-        self.min_distance = self.convert_cm_to_pixel(self.min_distance_cm, self.dpi) # in pixel, (horizontal,vertical)
+        self.min_distance = self.convert_cm_to_pixel(self.min_distance_cm) # in pixel, (horizontal,vertical)
 
         # Calculate margins 
-        self.n_books_grid = self.calc_n_books_grid(self.poster_size_cm, self.max_cover_size_cm, self.min_distance_cm, self.title_height_cm)
-        self.margins = self.calc_margins(self.poster_size_cm, self.min_distance_cm, self.n_books_grid, self.max_cover_size_cm, self.dpi)
+        self.calc_n_books_grid()
+        self.calc_margins()
         
         # Other properties
         H = 0 # horizontal index
@@ -89,32 +103,26 @@ class PosterParameter:
         self.font = ImageFont.truetype(self.font_str, size=self.fontsize)
         self.n_books_grid_total = self.n_books_grid[H] * self.n_books_grid[V]
 
-    def convert_cm_to_pixel(self, values_cm, dpi: int = 100):
-        cm_to_pixel_factor = dpi * 2.54
+    def convert_cm_to_pixel(self, values_cm):
+        cm_to_pixel_factor = self.dpi * 2.54
         if isinstance(values_cm, (tuple, list)):
             values_pix = [round(v_cm * cm_to_pixel_factor) for v_cm in values_cm]
         else:  # scalar
             values_pix = round(values_cm * cm_to_pixel_factor)
         return values_pix
     
-    def calc_n_books_grid(self, poster_size_cm, max_cover_size_cm, min_distance_cm, title_height_cm=0) -> tuple[int,int]:    
-        H = 0 # horizontal index
-        V = 1 # vertical intex
-        n_books_h = int((poster_size_cm[H] - min_distance_cm[H]) / (max_cover_size_cm[H] + min_distance_cm[H]))
-        n_books_v = int((poster_size_cm[V] - min_distance_cm[V] - title_height_cm) / (max_cover_size_cm[V] + min_distance_cm[V]))
-        n_books_grid = (n_books_h, n_books_v)
-        return n_books_grid
+    def calc_n_books_grid(self) -> None:    
+        n_books_h = int((self.poster_size_cm[H] - self.min_distance_cm[H]) / (self.max_cover_size_cm[H] + self.min_distance_cm[H]))
+        n_books_v = int((self.poster_size_cm[V] - self.min_distance_cm[V] - self.title_height_cm) / (self.max_cover_size_cm[V] + self.min_distance_cm[V]))
+        self.n_books_grid = (n_books_h, n_books_v)
 
-    def calc_margins(self, poster_size_cm, min_distance_cm, n_books_grid, max_cover_size_cm, dpi) -> tuple[int,int]:
-        H = 0 # horizontal index
-        V = 1 # vertical intex
-        margins_cm_h = (poster_size_cm[H] + min_distance_cm[H] - n_books_grid[H] * (max_cover_size_cm[H] + min_distance_cm[H]))/2.
-        margins_cm_v = (poster_size_cm[V] + min_distance_cm[V] - n_books_grid[V] * (max_cover_size_cm[V] + min_distance_cm[V]))/2.
+    def calc_margins(self) -> None:
+        margins_cm_h = (self.poster_size_cm[H] + self.min_distance_cm[H] - self.n_books_grid[H] * (self.max_cover_size_cm[H] + self.min_distance_cm[H]))/2.
+        margins_cm_v = (self.poster_size_cm[V] + self.min_distance_cm[V] - self.n_books_grid[V] * (self.max_cover_size_cm[V] + self.min_distance_cm[V]))/2.
         margins_cm = (margins_cm_h, margins_cm_v)
-        margins = self.convert_cm_to_pixel(margins_cm, dpi) # in pixel, (horizontal,vertical)
-        return margins
+        self.margins = self.convert_cm_to_pixel(margins_cm) # in pixel, (horizontal,vertical)
 
-def create_poster_from_rss(rss_urls: list, START_DATE: datetime, design_parameters: PosterParameter) -> None:
+def create_poster_from_rss(rss_urls: list[str], START_DATE: datetime, design_parameters: PosterParameters) -> None:
     # Loading feeds
     books = load_feeds(rss_urls)
 
@@ -130,12 +138,12 @@ def create_poster_from_rss(rss_urls: list, START_DATE: datetime, design_paramete
     # Composition of the image
     create_poster_image(books, design_parameters)
 
-def get_cover_filename(book: np.array, PATH_TO_COVERS='./covers') -> str:
-    # Path to the cover image of the book
+def get_cover_filename(book: dict, PATH_TO_COVERS='./covers') -> str:
+    '''Get the path to the cover image of the book'''
     return f'{PATH_TO_COVERS}/{book["book_id"]}.jpg'
 
-def load_feeds(rss_urls: list) -> np.array:
-    # Downloading the RSS feed and converting it to an array of books
+def load_feeds(rss_urls: list) -> np.ndarray:
+    '''Downloading the RSS feed and converting it to an array of books'''
     print('Loading feeds...')
     books = np.atleast_1d(np.array([]))
     for i,url in enumerate(rss_urls):
@@ -146,8 +154,8 @@ def load_feeds(rss_urls: list) -> np.array:
     books = np.array(list({b['book_id']:b for b in books}.values())) # removing duplicates
     return books
 
-def sort_books(books: np.array) -> tuple[np.array, np.array]:
-    # Reordering books by read date
+def sort_books(books: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    '''Reordering books by read date'''
     read_at_list = []
     for book in books:
         if book['user_read_at'] == '': # no read date entered
@@ -160,15 +168,15 @@ def sort_books(books: np.array) -> tuple[np.array, np.array]:
     read_at_list = read_at_list[order]
     return books, read_at_list
 
-def filter_books(START_DATE: datetime, books: np.array, read_at_list: np.array) -> np.array:
-    # Excluding books read before START_DATE
+def filter_books(START_DATE: datetime, books: np.ndarray, read_at_list: np.ndarray) -> np.ndarray:
+    '''Excluding books read before START_DATE'''
     start_index = np.where(START_DATE <= read_at_list)[0][0]
     read_at_list = read_at_list[start_index:]
     books = books[start_index:]
     return books
 
-def download_covers(books: np.array, COVER_URL_KEY: str ='book_large_image_url', PATH_TO_COVERS='./covers') -> None:
-    # Downloading the book covers from goodreads (if not downloaded already)
+def download_covers(books: np.ndarray, COVER_URL_KEY: str ='book_large_image_url', PATH_TO_COVERS='./covers') -> None:
+    '''Downloading the book covers from goodreads (if not downloaded already)'''
     print(f"Downloading missing covers of {int(books.size)} books...")
     if not exists(PATH_TO_COVERS):
         os.mkdir(PATH_TO_COVERS)
@@ -177,11 +185,8 @@ def download_covers(books: np.array, COVER_URL_KEY: str ='book_large_image_url',
             urllib.request.urlretrieve(book[COVER_URL_KEY], get_cover_filename(book, PATH_TO_COVERS))
     print('Done!')
 
-def create_poster_image(books: np.array, params: PosterParameter) -> None:
-    # Creating the poster image with the book covers and read date
-    H = 0 # horizontal index
-    V = 1 # vertical intex
-
+def create_poster_image(books: np.ndarray, params: PosterParameters) -> None:
+    '''Creating the poster image with the book covers and read date'''
     if books.size > params.n_books_grid_total:
         warnings.warn(f"Warning: The current poster grid only supports {params.n_books_grid_total} books. {books.size - params.n_books_grid_total} books are not included.", DeprecationWarning)
         # Removing the first books to only include the books read last in the poster.
@@ -189,7 +194,7 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
 
     # Create a blank poster
     print('Creating poster...')
-    poster = Image.new("RGB", params.poster_size, "white")
+    poster = Image.new("RGB", params.poster_size, params.background_color_hex)
     draw = ImageDraw.Draw(poster)
 
     # Adding shading for the years to the poster
@@ -209,7 +214,7 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
         # Load cover image
         cover_image = Image.open(get_cover_filename(book))
         # Resizing cover image
-        cover_image = resize_cover_image(params.max_cover_size, params.opt_aspect_ratio, cover_image)
+        cover_image = resize_cover_image(params, cover_image)
         # Adding the cover to the poster
         cover_position = calc_cover_position(params, row, col, cover_image.size)
         poster.paste(cover_image, cover_position)
@@ -228,31 +233,25 @@ def create_poster_image(books: np.array, params: PosterParameter) -> None:
     poster.save(params.output_file)
     print('Done!')
 
-def resize_cover_image(max_cover_size, opt_aspect_ratio, cover_image) -> tuple[Image.Image, tuple[int,int]]:
-    # Resampling the cover images with the appropriate resolution
-    H = 0 # horizontal index
-    V = 1 # vertical intex
+def resize_cover_image(params: PosterParameters, cover_image: Image.Image) -> tuple[Image.Image, tuple[int,int]]:
+    '''Resampling the cover images with the appropriate resolution'''
     aspect_ratio = cover_image.size[H] / cover_image.size[V]
-    if (opt_aspect_ratio < aspect_ratio):
-        cover_image_size = (max_cover_size[H], np.round(max_cover_size[H] / aspect_ratio).astype(int))
+    if (params.opt_aspect_ratio < aspect_ratio):
+        cover_image_size = (params.max_cover_size[H], np.round(params.max_cover_size[H] / aspect_ratio).astype(int))
     else:
-        cover_image_size = (np.round(max_cover_size[V] * aspect_ratio).astype(int), max_cover_size[V])
+        cover_image_size = (np.round(params.max_cover_size[V] * aspect_ratio).astype(int), params.max_cover_size[V])
     cover_image = cover_image.resize(cover_image_size, Image.BICUBIC)
     return cover_image
 
-def calc_cover_position(params: PosterParameter, row: int, col: int, image_size: tuple[int,int]) -> tuple[int,int]:
-    # Calculating the position where the next cover is inserted
-    H = 0 # horizontal index
-    V = 1 # vertical intex
+def calc_cover_position(params: PosterParameters, row: int, col: int, image_size: tuple[int,int]) -> tuple[int,int]:
+    '''Calculating the position where the next cover is inserted'''
     pos_h = round(params.margins[H] + col * (params.max_cover_size[H] + params.min_distance[H]) + (params.max_cover_size[H]-image_size[H])/2)
     pos_v = round(params.title_height_cm + params.margins[V] + row * (params.max_cover_size[V] + params.min_distance[V]) + (params.max_cover_size[V]-image_size[V])/2)
     cover_position = (pos_h, pos_v)
     return cover_position
 
-def calc_text_position(params: PosterParameter, draw: ImageDraw, row: int, col: int, read_date: str) -> tuple[int,int]:
-    # Calculating the position where the read date is inserted
-    H = 0 # horizontal index
-    V = 1 # vertical intex
+def calc_text_position(params: PosterParameters, draw: ImageDraw, row: int, col: int, read_date: str) -> tuple[int,int]:
+    '''Calculating the position where the read date is inserted'''
     _, _, w, _ = draw.textbbox((0, 0), read_date, font=params.font)
     text_position_h = round(params.margins[H] + col * (params.max_cover_size[H] + params.min_distance[H]) + params.max_cover_size[H]/2 - w/2)
     text_position_v = round(params.title_height_cm + params.margins[V] + row * (params.max_cover_size[V] + params.min_distance[V]) + params.max_cover_size[V]*1 + params.fontsize/4)
@@ -260,9 +259,7 @@ def calc_text_position(params: PosterParameter, draw: ImageDraw, row: int, col: 
     return text_position
 
 
-def shade_years(books, params, draw):
-    H = 0 # horizontal index
-    V = 1 # vertical intex
+def shade_years(books: np.ndarray, params: PosterParameters, draw: ImageDraw) -> None:
     years, row_first_book_in_year, col_first_book_in_year = get_grid_index_of_first_books_in_years(books, params)
     for y in range(years.size-1):
         for row in range(row_first_book_in_year[y], row_first_book_in_year[y+1] + 1):
@@ -274,7 +271,7 @@ def shade_years(books, params, draw):
                 cover_position_start = calc_cover_position(params, row, start_col, params.max_cover_size)
                 cover_position_end = calc_cover_position(params, row, end_col, params.max_cover_size)
                 # start_pos = tuple(cover_position[])
-                start_h, start_v, end_h, end_v = get_shading_rectangle_corners(params, H, V, cover_position_start, cover_position_end)
+                start_h, start_v, end_h, end_v = get_shading_rectangle_corners(params, cover_position_start, cover_position_end)
 
                 if y % 2 == 0:
                     color = params.year_shading_color1_hex
@@ -282,15 +279,14 @@ def shade_years(books, params, draw):
                     color = params.year_shading_color2_hex
                 draw.rectangle(((start_h, start_v), (end_h, end_v)), fill=color, outline=None)
 
-def get_shading_rectangle_corners(params, H, V, cover_position_start, cover_position_end):
+def get_shading_rectangle_corners(params: PosterParameters, cover_position_start: np.ndarray, cover_position_end: np.ndarray) -> tuple[int,int,int,int]:
     start_h = cover_position_start[H] - round(params.min_distance[H] / 2.)
     start_v = cover_position_start[V] - round(params.min_distance[V] / 3.)
     end_h   = cover_position_end[H] + params.max_cover_size[H] + round(params.min_distance[H] / 2.)
     end_v   = cover_position_end[V] + params.max_cover_size[V] + round(params.min_distance[V] * 2/3.)
-    return start_h,start_v,end_h,end_v
+    return start_h, start_v, end_h, end_v
 
-def get_grid_col_indices_in_row(row, y, params, row_first_book_in_year, col_first_book_in_year):
-    H = 0 # horizontal index
+def get_grid_col_indices_in_row(row: int, y: int, params: PosterParameters, row_first_book_in_year: np.ndarray, col_first_book_in_year: np.ndarray) -> tuple[int,int]:
     if row == row_first_book_in_year[y]:
         start_col = col_first_book_in_year[y]
     else:
@@ -299,18 +295,18 @@ def get_grid_col_indices_in_row(row, y, params, row_first_book_in_year, col_firs
         end_col = col_first_book_in_year[y+1] - 1
     else:
         end_col = params.n_books_grid[H] - 1
-    return start_col,end_col
+    return start_col, end_col
 
-def get_grid_index_of_first_books_in_years(books, params):
-    H = 0 # horizontal index
+def get_grid_index_of_first_books_in_years(books: np.ndarray, params: PosterParameters) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    # Add first book/year
     years = [int(datetime.strptime(books[0]['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').year),]
     row_first_book_in_year = [0,]
     col_first_book_in_year = [0,]
     for b, book in enumerate(books):
-        if b == 0:
+        if b == 0: # already added
             continue
         current_year = int(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').year)
-        if years[-1] < current_year:
+        if years[-1] < current_year: # New year
             years.append(current_year)
             # Grid position of the current cover
             row = b // params.n_books_grid[H]
@@ -320,15 +316,15 @@ def get_grid_index_of_first_books_in_years(books, params):
     # Dummy for end of grid
     b = b + 1
     years.append(current_year+1)
-    row = (b) // params.n_books_grid[H]
-    col = (b) % params.n_books_grid[H]
+    row = b // params.n_books_grid[H]
+    col = b % params.n_books_grid[H]
     row_first_book_in_year.append(row)
     col_first_book_in_year.append(col)
     # np array conversion
     years = np.array(years, dtype=int)
     row_first_book_in_year = np.array(row_first_book_in_year, dtype=int)
     col_first_book_in_year = np.array(col_first_book_in_year, dtype=int)
-    return years,row_first_book_in_year,col_first_book_in_year
+    return years, row_first_book_in_year, col_first_book_in_year
 
 if __name__ == '__main__':
     main()

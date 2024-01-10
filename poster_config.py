@@ -16,10 +16,12 @@ title_height_cm:        float = 0
 output_file:            str = "poster.jpg"
 # Font for the read date. UTF-8 fonts recommended.
 font_str:               str = "arial.ttf"
+# Poster background color
+background_color_hex:   str = "#FFFFFF"
 # Enable or disable the shading of books read within the same year
 year_shading:           bool = True
-year_shading_color1_hex:str = "#CCCCCC"
-year_shading_color2_hex:str = "#FFFFFF"
+year_shading_color1_hex:str = "#DDDDDD"
+year_shading_color2_hex:str = "#BBBBBB"
 
 # Start date
 # Only books read after this date are included  
