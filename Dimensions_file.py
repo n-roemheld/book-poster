@@ -54,7 +54,7 @@ class Dimensions:
     @classmethod
     def from_length(cls, width: Length, height: Length) -> None:
         assert width.dpi == height.dpi, 'DPI mismatch'
-        return cls(width=width.cm, height=height.cm, lunit='cm', dpi=width.dpi)
+        return cls(width=width.cm, height=height.cm, unit='cm', dpi=width.dpi)
         
     @property
     def dpi(self) -> int:

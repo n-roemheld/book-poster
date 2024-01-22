@@ -15,3 +15,11 @@ end_date_day:          int = datetime.today().day
 end_date = datetime(year=end_date_year, month=end_date_month, day=end_date_day, tzinfo=timezone.utc)
 
 title_str = f'Books read between {str(start_date.date())} and {str(end_date.date())}'
+
+credit_str = 'Created with'
+credit_url = 'https://github.com/n-roemheld/book-poster'
+
+
+if __name__ == '__main__':
+    from book_poster_creator import main
+    main()

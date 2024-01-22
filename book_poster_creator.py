@@ -1,10 +1,10 @@
 # Future work:
-# To do: Add a shadow to the books (plot blurred rectangle first, use mask to blurr selectively? or paste blurred image?)
-# To do: Add the started reading date
-# To do: Add a Title, e.g. "Books read betweey x and y"
-# To do: Add a signature with QR codes for the repository (made with...) and goodreads profile (follow me on goodreads)
-# To do: Font color options
-# To do: Refactor code with class structure
+# TODO: Add a shadow to the books (plot blurred rectangle first, use mask to blurr selectively? or paste blurred image?)
+# TODO: Add the started reading date
+# TODO: Add a Title, e.g. "Books read betweey x and y"
+# TODO: Add a signature with QR codes for the repository (made with...) and goodreads profile (follow me on goodreads)
+# TODO: Font color options
+# TODO: Refactor code with class structure
 
 
 import warnings
@@ -135,6 +135,25 @@ def create_poster_image(books: np.ndarray, layout: PosterLayout, user_profile_li
     if layout.print_title:
         title_position = layout.get_title_position(config.title_str)
         draw.text(title_position.dim_px, config.title_str, font=layout.title_font, fill="black", align='center')
+    
+    # Adding the signature
+    if layout.print_signature:
+        # left 
+        user_name = books[0]['user_name']
+        signature_str = f'Follow {user_name} on Goodreads!'
+        signature_text_position = layout.get_signature_text_position_left()
+        signature_qr_code_position = layout.get_signature_position_left()
+        draw.text(signature_text_position.xy_px, signature_str, font=layout.signature_font, fill="black", align='center', anchor='lm')
+        qr_code = create_qr_code(user_profile_link, layout.get_qr_code_size().dim_px[0])
+        poster.paste(qr_code, signature_qr_code_position.xy_px)
+        # right
+        signature_text_position = layout.get_signature_text_position_right()
+        signature_qr_code_position = layout.get_signature_position_right()
+        draw.text(signature_text_position.xy_px, config.credit_str, font=layout.signature_font, fill="black", align='center', anchor='rm')
+        qr_code = create_qr_code(config.credit_url, layout.get_qr_code_size().dim_px[0])
+        poster.paste(qr_code, signature_qr_code_position.xy_px)
+
+
 
     # Adding shading for the years to the poster
     if layout.year_shading:
@@ -172,14 +191,14 @@ def add_book_text(layout, draw, book, row, col):
             else:
                 text = text + f' ({float(book["average_rating"]):.1f}' + u"\u2606" + ')'
         text_position = layout.get_cover_text_position(col, row, [text], line_index=0)
-        draw.text(text_position.dim_px, text, fill="black", font=layout.book_font, align='center')
+        draw.text(text_position.dim_px, text, fill="black", font=layout.book_font, align='center', anchor='ma')
 
 def add_cover_to_poster(layout, poster, draw, book, row, col) -> None:
     # Load cover image
     cover_image = Image.open(get_cover_filename(book))
     # Resizing cover image
     cover_image = resize_cover_image(layout, cover_image)
-    cover_size = Dimensions(cover_image.size[0], cover_image.size[1], unit='px', dpi=layout.dpi)
+    cover_size  = Dimensions(cover_image.size[0], cover_image.size[1], unit='px', dpi=layout.dpi)
     # Adding the cover to the poster
     cover_position = layout.get_cover_position(col, row, cover_size)
     poster.paste(cover_image, cover_position.dim_px)
@@ -214,14 +233,14 @@ def shade_years(books: np.ndarray, layout: PosterLayout, draw: ImageDraw) -> Non
             if ((row == row_first_book_in_year[y+1]) and (end_col == layout.n_books_grid[H] - 1)) or (row >= layout.n_books_grid[V]):
                 continue
             else:
-                start_position   = layout.get_shading_start_position(start_col, row)
-                end_position     = layout.get_shading_end_position(end_col, row)
-
                 if y % 2 == 0:
                     color = layout.year_shading_color1_hex
                 else:
                     color = layout.year_shading_color2_hex
-                draw.rectangle((start_position.xy_px, end_position.xy_px), fill=color, outline=None)
+                if color != layout.background_color_hex:
+                    start_position   = layout.get_shading_start_position(start_col, row)
+                    end_position     = layout.get_shading_end_position(end_col, row)
+                    draw.rectangle((start_position.xy_px, end_position.xy_px), fill=color, outline=None)
 
 def get_grid_col_indices_in_row(row: int, y: int, layout: PosterLayout, row_first_book_in_year: np.ndarray, col_first_book_in_year: np.ndarray) -> tuple[int,int]:
     if row == row_first_book_in_year[y]:
@@ -265,11 +284,11 @@ def get_grid_index_of_first_books_in_years(books: np.ndarray, layout: PosterLayo
 
 def create_qr_code(link: str, size_px: int) -> Image:
     import qrcode
-    qr = qrcode.QRCode(version=1,box_size=size_px, border=1)
+    qr = qrcode.QRCode(version=1,box_size=1, border=1, error_correction=qrcode.constants.ERROR_CORRECT_L)
     qr.add_data(link)
     qr.make(fit=True)
     img = qr.make_image(fill='black', back_color='white')
-    return img
+    return img.resize((size_px, size_px), Image.BICUBIC)
 
 if __name__ == '__main__':
     main()
