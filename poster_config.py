@@ -14,4 +14,4 @@ end_date_month:        int = datetime.today().month
 end_date_day:          int = datetime.today().day
 end_date = datetime(year=end_date_year, month=end_date_month, day=end_date_day, tzinfo=timezone.utc)
 
-title_str = f'Books read between {str(start_date.date())} {str(end_date.date())}'
+title_str = f'Books read between {str(start_date.date())} and {str(end_date.date())}'

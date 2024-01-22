@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import feedparser
 import poster_config as config
-from Dimensions_file import Dimensions_cm, Dimensions_pixel
+from Dimensions_file import Dimensions_cm, Dimensions_px
 
 H = 0 # horizontal index
 V = 1 # vertical intex
@@ -80,12 +80,12 @@ class PosterParameters:
     separator_width_factor: float               = 1/40. # width of the separator line in the book grid
     print_rating:           bool                = True
     # Computed from other attributes via post_init
-    poster_size:            Dimensions_pixel        = field(init=False)
+    poster_size:            Dimensions_px        = field(init=False)
     max_cover_size_cm:      Dimensions_cm           = field(init=False)
-    max_cover_size:         Dimensions_pixel        = field(init=False)
-    min_distance:           Dimensions_pixel        = field(init=False)
+    max_cover_size:         Dimensions_px        = field(init=False)
+    min_distance:           Dimensions_px        = field(init=False)
     n_books_grid:           tuple[int,int]          = field(init=False)
-    margins:                Dimensions_pixel        = field(init=False)
+    margins:                Dimensions_px        = field(init=False)
     opt_aspect_ratio:       float                   = field(init=False)
     fontsize:               int                     = field(init=False)
     font:                   ImageFont.FreeTypeFont  = field(init=False)

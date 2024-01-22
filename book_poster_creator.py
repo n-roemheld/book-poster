@@ -1,13 +1,10 @@
 # Future work:
-# To do: use class instead of named tuple classes
 # To do: Add a shadow to the books (plot blurred rectangle first, use mask to blurr selectively? or paste blurred image?)
-# To do: Automatic dpi and distance calculation based on the size of the poster. Ensure compatibility with separators and text.
-# To do: Add a permissible amount of stretch for the cover images and apply it.
 # To do: Add the started reading date
-# To do: Add option to include the rating
 # To do: Add a Title, e.g. "Books read betweey x and y"
 # To do: Add a signature with QR codes for the repository (made with...) and goodreads profile (follow me on goodreads)
 # To do: Font color options
+# To do: Refactor code with class structure
 
 
 import warnings
@@ -137,7 +134,7 @@ def create_poster_image(books: np.ndarray, layout: PosterLayout, user_profile_li
     # Adding the title
     if layout.print_title:
         title_position = layout.get_title_position(config.title_str)
-        draw.text(title_position.get_dim_in_px(), config.title_str, font=layout.title_font)
+        draw.text(title_position.dim_px, config.title_str, font=layout.title_font, fill="black", align='center')
 
     # Adding shading for the years to the poster
     if layout.year_shading:
@@ -175,7 +172,7 @@ def add_book_text(layout, draw, book, row, col):
             else:
                 text = text + f' ({float(book["average_rating"]):.1f}' + u"\u2606" + ')'
         text_position = layout.get_cover_text_position(col, row, [text], line_index=0)
-        draw.text(text_position.get_dim_in_px(), text, fill="black", font=layout.book_font, align='center')
+        draw.text(text_position.dim_px, text, fill="black", font=layout.book_font, align='center')
 
 def add_cover_to_poster(layout, poster, draw, book, row, col) -> None:
     # Load cover image
@@ -185,10 +182,10 @@ def add_cover_to_poster(layout, poster, draw, book, row, col) -> None:
     cover_size = Dimensions(cover_image.size[0], cover_image.size[1], unit='px', dpi=layout.dpi)
     # Adding the cover to the poster
     cover_position = layout.get_cover_position(col, row, cover_size)
-    poster.paste(cover_image, cover_position.get_dim_in_px())
+    poster.paste(cover_image, cover_position.dim_px)
 
     # Additing an outline to the cover
-    draw.rectangle((cover_position.get_dim_in_px(), tuple(cover_position.get_dim_in_px()[i] + cover_image.size[i] for i in range(2))), fill=None, width=int(cover_image.size[H]/200.), outline="black")
+    draw.rectangle((cover_position.dim_px, tuple(cover_position.dim_px[i] + cover_image.size[i] for i in range(2))), fill=None, width=int(cover_image.size[H]/200.), outline="black")
 
 
 def resize_cover_image(layout: PosterLayout, cover_image: Image.Image) -> tuple[Image.Image, tuple[int,int]]:
@@ -196,9 +193,9 @@ def resize_cover_image(layout: PosterLayout, cover_image: Image.Image) -> tuple[
     aspect_ratio = cover_image.size[H] / cover_image.size[V]
     # If the cover's aspect ratio is similar to the optimal aspect ratio, the cover is stretched.
     if np.maximum(aspect_ratio/layout.default_aspect_ratio, layout.default_aspect_ratio/aspect_ratio) < 1.2:
-        cover_image_size = layout.cover_area.get_dim_in_px()
+        cover_image_size = layout.cover_area.dim_px
     elif (layout.default_aspect_ratio < aspect_ratio):
-        cover_image_size = (layout.cover_area.width_px(), np.round(layout.cover_area.width_px() / aspect_ratio).astype(int))
+        cover_image_size = (layout.cover_area.width_px, np.round(layout.cover_area.width_px / aspect_ratio).astype(int))
     else:
         cover_image_size = (np.round(layout.cover_area.height_px() * aspect_ratio).astype(int), layout.cover_area.height_px())
     cover_image = cover_image.resize(cover_image_size, Image.BICUBIC)
@@ -208,7 +205,7 @@ def shade_years(books: np.ndarray, layout: PosterLayout, draw: ImageDraw) -> Non
     # if layout.separator_width_factor == 0:
     half_separator_width = 0
     # else:
-    #     half_separator_width = int(layout.cover_area.width_px()*layout.separator_width_factor/2.)+1
+    #     half_separator_width = int(layout.cover_area.width_px*layout.separator_width_factor/2.)+1
     years, row_first_book_in_year, col_first_book_in_year = get_grid_index_of_first_books_in_years(books, layout)
     for y in range(years.size-1):
         for row in range(row_first_book_in_year[y], row_first_book_in_year[y+1] + 1):
@@ -218,13 +215,13 @@ def shade_years(books: np.ndarray, layout: PosterLayout, draw: ImageDraw) -> Non
                 continue
             else:
                 start_position   = layout.get_shading_start_position(start_col, row)
-                end_position     = layout.get_shading_start_position(end_col, row)
+                end_position     = layout.get_shading_end_position(end_col, row)
 
                 if y % 2 == 0:
                     color = layout.year_shading_color1_hex
                 else:
                     color = layout.year_shading_color2_hex
-                draw.rectangle((start_position.xy_px(), end_position.xy_px()), fill=color, outline=None)
+                draw.rectangle((start_position.xy_px, end_position.xy_px), fill=color, outline=None)
 
 def get_grid_col_indices_in_row(row: int, y: int, layout: PosterLayout, row_first_book_in_year: np.ndarray, col_first_book_in_year: np.ndarray) -> tuple[int,int]:
     if row == row_first_book_in_year[y]:

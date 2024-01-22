@@ -1,4 +1,4 @@
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 INCH_IN_CM = 2.54
 
@@ -7,24 +7,29 @@ class Length:
     # length_px : Dimensions_pixel = (0,0)
     # length_cm : Dimensions_cm = (0.,0.)
     def __init__(self, length_in: float, unit: str = 'px', dpi: int = 208) -> None:
-        self.dpi = dpi
-        cm_to_pixel_factor = dpi / INCH_IN_CM
+        self._dpi = dpi
+        self._px_to_cm_factor = INCH_IN_CM / self._dpi
         if unit == 'px':
             self.px = round(length_in)
-            self.cm = length_in / cm_to_pixel_factor
         elif unit == 'cm':
-            self.cm = length_in 
-            self.px = round(length_in * cm_to_pixel_factor)
+            self.cm = length_in
         else:
             raise ValueError(f'Unknown unit {unit}')
     
-    # def as_cm(self) -> float:
-    #     return self.length_cm
+    @property
+    def cm(self) -> float:
+        return self.px * self._px_to_cm_factor
     
-    # def as_px(self) -> int:
-    #     return self.length_px
+    @cm.setter
+    def cm(self, length_cm: float) -> None:
+        self.px = round(length_cm / self._px_to_cm_factor)
+    
+    @property
+    def dpi(self) -> int:
+        return self._dpi
+    
         
-class Dimensions_pixel(NamedTuple):
+class Dimensions_px(NamedTuple):
     width: int
     height: int
 
@@ -34,59 +39,93 @@ class Dimensions_cm(NamedTuple):
 
 class Dimensions: 
     '''Class for handling dimensions in pixels and cm'''
-    # dim_px : Dimensions_pixel = (0,0)
-    # dim_cm : Dimensions_cm = (0.,0.)
     def __init__(self, width: float, height: float, unit: str = 'px', dpi: int = 208) -> None:
-        self.dpi = dpi
-        cm_to_pixel_factor = dpi / INCH_IN_CM
+        self._dpi = dpi
+        self._px_to_cm_factor = INCH_IN_CM / self._dpi
+        self.instanciated_as = unit # for debugging only
         if unit == 'px':
-            self.dim_px = Dimensions_pixel(width, height)
-            self.dim_cm = Dimensions_cm(width/cm_to_pixel_factor, height/cm_to_pixel_factor)
+            self.dim_px = Dimensions_px(width, height)
         elif unit == 'cm':
             self.dim_cm = Dimensions_cm(width, height)
-            self.dim_px = Dimensions_pixel(int(width*cm_to_pixel_factor), int(height*cm_to_pixel_factor))
         else:
             raise ValueError(f'Unknown unit {unit}')
     
-    # def __init__(self, width: Length, height: Length) -> None:
-    #     assert width.dpi == height.dpi, 'DPI mismatch'
-    #     self.__init__(width=width.cm, height=height.cm, lunit='cm', dpi=width.dpi)
+    # Alternative constructor to allow for passing in Length objects
+    @classmethod
+    def from_length(cls, width: Length, height: Length) -> None:
+        assert width.dpi == height.dpi, 'DPI mismatch'
+        return cls(width=width.cm, height=height.cm, lunit='cm', dpi=width.dpi)
+        
+    @property
+    def dpi(self) -> int:
+        return self._dpi
     
-    def get_dim_in_px(self) -> Dimensions_pixel:
-        return self.dim_px # pointer problem?
+    @property
+    def dim_px(self) -> Dimensions_px:
+        return self._dim_px
     
-    def get_dim_in_cm(self) -> Dimensions_cm:
-        return self.dim_cm # pointer problem?
+    @dim_px.setter
+    def dim_px(self, dim_px: Dimensions_px) -> None:
+        self._dim_px = dim_px
     
+    @property
+    def dim_cm(self) -> Dimensions_cm:
+        return Dimensions_cm(self.dim_px.width * self._px_to_cm_factor, self.dim_px.height * self._px_to_cm_factor)
+    
+    @dim_cm.setter
+    def dim_cm(self, dim_cm: Dimensions_cm) -> None:
+        self.dim_px = Dimensions_px(round(dim_cm.width / self._px_to_cm_factor), round(dim_cm.height / self._px_to_cm_factor))
+    
+    @property
     def width_px(self) -> int:
         return self.dim_px.width
     
+    @property
     def width_cm(self) -> int:
         return self.dim_cm.width
     
+    @property
     def height_px(self) -> int:
         return self.dim_px.height
     
+    @property
     def height_cm(self) -> int:
         return self.dim_cm.height
     
     def add(self, other: 'Dimensions') -> 'Dimensions':
-        assert self.dpi == other.dpi, 'DPI mismatch'
-        return Dimensions(self.width_cm() + other.width_cm(), self.height_cm() + other.height_cm(), unit='cm', dpi=self.dpi)
+        assert self._dpi == other._dpi, 'DPI mismatch'
+        return Dimensions(self.width_cm + other.width_cm, self.height_cm + other.height_cm, unit='cm', dpi=self._dpi)
     
     def scale(self, factor: float) -> 'Dimensions':
-        return Dimensions(self.width_cm() * factor, self.height_cm() * factor, unit='cm', dpi=self.dpi)
+        return Dimensions(self.width_cm * factor, self.height_cm * factor, unit='cm', dpi=self._dpi)
 
 class Position (Dimensions):
+    # Alternative syntax for the Dimensions class for storing positions
+    @property
     def x_px(self):
-        return super().width_px()
+        return super().width_px
+
+    @property
     def y_px(self):
-        return super().height_px()
+        return super().height_px
+
+    @property
     def x_cm(self):
-        return super().width_cm()
+        return super().width_cm
+
+    @property
     def y_cm(self):
-        return super().height_cm()
+        return super().height_cm
+
+    @property
     def xy_px(self):
-        return super().get_dim_in_px()
+        return super().dim_px
+
+    @property
     def xy_cm(self):
-        return super().get_dim_in_cm()
+        return super().dim_cm
+
+
+if __name__ == '__main__':
+    from book_poster_creator import main
+    main()

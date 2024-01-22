@@ -26,7 +26,7 @@ class PosterLayout:
     year_shading_color2_hex:str                 = "#FFFFFF"
     expected_cover_height:  int                 = 475 # px
     default_aspect_ratio:   float               = .6555
-    number_of_text_lines:   int                 = 2
+    number_of_text_lines:   int                 = 1
     print_rating:           bool                = True
     print_title:            bool                = True
 
@@ -36,8 +36,8 @@ class PosterLayout:
     shading_factors                 = np.array([.1,.1]) # of cover width, height
     shadow_factors                  = np.array([.03,.06]) # of cover width, height
     book_font_height_factor         = 1/15. # of cover height
-    book_font_vspace_factor         = 3/5. # of font height
-    min_margins_factor              = 0 * np.array([.05,.05,.05]) # of poster height
+    book_font_vspace_factor         = 1/4. # of font height
+    min_margins_factor              = .02 * np.array([1,1,1]) # of poster height
     title_font_height_factor        = .02 # of poster height
     title_vspace_factor             = .5 # of font height
     signature_height_factor         = 1 # of title height
@@ -60,8 +60,7 @@ class PosterLayout:
         book_grid_area_width        = self.poster_dim.width - 2*min_margins[SIDES]
         book_area_width             = book_grid_area_width / self.n_books_grid[H]
         book_area_height            = book_grid_area_height / self.n_books_grid[V]
-        # To do: Fix adding incompatible factors
-        non_cover_height_factor     = self.number_of_text_lines * (self.book_font_height_factor * (1 + self.book_font_vspace_factor)) + self.cover_dist_factor[V] 
+        non_cover_height_factor     = self.number_of_text_lines * (self.book_font_height_factor * (1 + self.book_font_vspace_factor)) + self.cover_dist_factor[V] / 2.
         cover_area_width            = book_area_width / (1 + self.cover_dist_factor[H])
         cover_area_height           = book_area_height / (1 + non_cover_height_factor)
         current_aspect_ratio        = cover_area_width / cover_area_height
@@ -112,7 +111,7 @@ class PosterLayout:
         self.signature_font         = ImageFont.truetype(self.signature_font_str, size=self.signature_font_size.px)
 
         # Temp
-        self.poster_size = self.poster_dim.get_dim_in_px()
+        self.poster_size = self.poster_dim.dim_px
 
 
     def get_text_width_px(self, text: str, font: ImageFont) -> int:
@@ -127,22 +126,22 @@ class PosterLayout:
 
     def get_title_position(self, title: str) -> Position:
         title_w = self.get_text_width(title, self.title_font)
-        return Position((self.poster_dim.width_px() - title_w.px) / 2., 
+        return Position((self.poster_dim.width_px - title_w.px) / 2., 
                         self.margins[TOP].px, unit="px", dpi=self.dpi)
 
     def get_shading_start_position(self, cover_index_H: int, cover_index_V: int) -> Position:
-        return Position(self.margins[SIDES].cm + cover_index_H * self.book_area.width_cm(),
-                self.margins[TOP].cm + cover_index_V * self.book_area.height_cm() + self.title_font_size.cm + self.title_vspace.cm,
+        return Position(self.margins[SIDES].cm + cover_index_H * self.book_area.width_cm,
+                self.margins[TOP].cm + cover_index_V * self.book_area.height_cm + self.title_font_size.cm + self.title_vspace.cm,
                 unit="cm", dpi=self.dpi)
 
     def get_shading_end_position(self, cover_index_H: int, cover_index_V: int) -> Position:
-        return Position(self.margins[SIDES].cm + (cover_index_H + 1) * self.book_area.width_cm(),
-                self.margins[TOP].cm + (cover_index_V + 1) * self.book_area.height_cm() + self.title_font_size.cm + self.title_vspace.cm,
+        return Position(self.margins[SIDES].cm + (cover_index_H + 1) * self.book_area.width_cm,
+                self.margins[TOP].cm + self.title_font_size.cm + self.title_vspace.cm + (cover_index_V + 1) * self.book_area.height_cm + self.cover_dist.height_cm/2.,
                 unit="cm", dpi=self.dpi)
 
     def get_cover_area_position(self, cover_index_H: int, cover_index_V: int) -> Position:
-        return Position(self.margins[SIDES].cm + cover_index_H * self.book_area.width_cm() + self.cover_dist.width_cm()/2.,
-                self.margins[TOP].cm + cover_index_V * self.book_area.height_cm() + self.title_font_size.cm + self.title_vspace.cm + self.cover_dist.height_cm()/2.,
+        return Position(self.margins[SIDES].cm + cover_index_H * self.book_area.width_cm + self.cover_dist.width_cm/2.,
+                self.margins[TOP].cm + cover_index_V * self.book_area.height_cm + self.title_font_size.cm + self.title_vspace.cm + self.cover_dist.height_cm/2.,
                 unit="cm", dpi=self.dpi)
 
     def get_cover_position(self, cover_index_H: int, cover_index_V: int, cover_size: Dimensions) -> Position:
@@ -152,16 +151,21 @@ class PosterLayout:
 
     def get_cover_text_position(self, cover_index_H: int, cover_index_V: int, cover_text_lines: list[str], line_index: int) -> Position:
         cover_position = self.get_cover_area_position(cover_index_H, cover_index_V)
-        return Position(cover_position.width_cm() + self.cover_area.width_cm() / 2. - self.get_text_width(cover_text_lines[line_index], self.book_font).cm / 2.,
-            cover_position.height_cm() + self.cover_area.height_cm() + (line_index + 1) * (self.book_font_vspace.cm + self.book_font_size.cm),
+        return Position(cover_position.width_cm + self.cover_area.width_cm / 2. - self.get_text_width(cover_text_lines[line_index], self.book_font).cm / 2.,
+            # cover_position.height_cm + self.cover_area.height_cm + (line_index + 1) * (self.book_font_vspace.cm + self.book_font_size.cm),
+            cover_position.height_cm + self.cover_area.height_cm + (line_index + 1) * self.book_font_vspace.cm + line_index * self.book_font_size.cm,
                 unit="cm", dpi=self.dpi)
 
     def get_signature_position_left(self) -> Position:
         return Position(self.margins[SIDES].cm, 
-                self.poster_dim.height_cm() - self.margins[BOTTOM].cm - self.signature_height.cm,
+                self.poster_dim.height_cm - self.margins[BOTTOM].cm - self.signature_height.cm,
                 unit="cm", dpi=self.dpi)
 
     def get_signature_position_right(self) -> Position:
-        return Position(self.poster_dim.width_cm() - self.margins[SIDES].cm, 
-                self.poster_dim.height_cm() - self.margins[BOTTOM].cm - self.signature_height.cm,
+        return Position(self.poster_dim.width_cm - self.margins[SIDES].cm, 
+                self.poster_dim.height_cm - self.margins[BOTTOM].cm - self.signature_height.cm,
                 unit="cm", dpi=self.dpi)
+
+if __name__ == '__main__':
+    from book_poster_creator import main
+    main()
