@@ -31,7 +31,7 @@ def main() -> None:
     #          For posters with more than 100 books, split shelves into shelves with less than 100 books.
     #          Duplicates are eliminated.
     rss_urls    = read_rss_urls()
-    layout      = layout_generator.get_poster_layout()
+    layout      = layout_generator.PosterLayout()
     config      = poster_config.Config()
     creator     = Book_poster_creator(layout, config, rss_urls)
     creator.create_poster_image()
@@ -92,7 +92,7 @@ class Book_poster_creator:
 
         # Create a blank poster
         print('Creating poster...')
-        poster_image = Image.new("RGB", self.layout.poster_size, self.layout.background_color_hex)
+        poster_image = Image.new("RGB", self.layout.poster_dim.dim_px, self.layout.background_color_hex)
         draw = ImageDraw.Draw(poster_image)
 
         # Object for adding the title and signature/footer text to the poster

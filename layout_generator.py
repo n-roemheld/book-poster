@@ -12,64 +12,115 @@ TOP = 0 # top margin index
 BOTTOM = 1 # bottom margin index
 SIDES = 2 # sides margin index
 
-# TODO: Change into PosterLayoutFactory (not dataclass) that returns a PosterLayout that only contains used attributes
-@dataclass(frozen=True)
-class PosterParametersPublic:
-    '''Poster design parameters that are used externally unmodified'''
+
+@dataclass
+class PosterLayout:
+    # Poster design parameters that are used externally unmodified
     output_file:            str                 = "poster.jpg"
     background_color_hex:   str                 = "#FFFFFF"
     year_shading:           bool                = True
-    year_shading_color1_hex:str                 = "#CCCCCC"
-    year_shading_color2_hex:str                 = "#FFFFFF"
+    year_shading_color1_hex:str                 = "#FFFFFF"
+    year_shading_color2_hex:str                 = "#CCCCCC"
     number_of_text_lines:   int                 = 1 # TODO: make dynamic, depending on text used
     print_rating:           bool                = True
     print_title:            bool                = True
     print_signature:        bool                = True
     n_books_grid:           tuple[int,int]      = (8,8)
-
-@dataclass
-class PosterParametersPrivate:
-    '''Poster design parameters that are only used to compute other parameters and not used on their own'''
-    # Internal only!
-    poster_dim:             Dimensions_cm       = Dimensions_cm(width=60, height=90)
-    title_font_str:         str                 = "./fonts/Merriweather-Regular.ttf"
-    book_font_str:          str                 = "./fonts/Lato-star.ttf"
-    signature_font_str:     str                 = "./fonts/Lato-star.ttf"
-    expected_cover_height:  int                 = 475 # px, common height of cover images on goodreads, used for dpi calculations
     default_aspect_ratio:   float               = .6555
-    # Factors
-    cover_dist_factor:            np.ndarray    = np.array([.01,.01])  # of cover width, height
-    shading_factors:              np.ndarray    = 1 * np.array([.1,.05]) # of cover width, height
-    shadow_factors:               np.ndarray    = np.array([.03,.06]) # of cover width, height
-    min_margins_factor:           np.ndarray    = .01 * np.array([1,1,1]) # of poster height
-    book_font_height_factor:      float         = 1/15. # of cover height
-    book_font_vspace_factor:      float         = 1/4. # of font height
-    title_font_height_factor:     float         = .02 # of poster height
-    title_vspace_factor:          float         = .5 # of font height
-    signature_height_factor:      float         = 1.2 # of title height
-    signature_vspace_factor:      float         = .3 # of signature height
-    signature_font_height_factor: float         = .35 # of signature height
-    signature_hspace_factor:      float         = .35 # of signature height
 
     def __post_init__(self):
+        # Internal only!
+        poster_dim:             Dimensions_cm       = Dimensions_cm(width=60, height=90)
+        title_font_str:         str                 = "./fonts/Merriweather-Regular.ttf"
+        book_font_str:          str                 = "./fonts/Lato-star.ttf"
+        signature_font_str:     str                 = "./fonts/Lato-star.ttf"
+        expected_cover_height:  int                 = 475 # px, common height of cover images on goodreads, used for dpi calculations
+
+        # Factors
+        cover_dist_factor                           = np.array([.01,.01])  # of cover width, height
+        shading_factors                             = 1 * np.array([.1,.05]) # of cover width, height
+        shadow_factors                              = np.array([.03,.06]) # of cover width, height
+        min_margins_factor                          = .01 * np.array([1,1,1]) # of poster height
+        book_font_height_factor:      float         = 1/15. # of cover height
+        book_font_vspace_factor:      float         = 1/4. # of font height
+        title_font_height_factor:     float         = .02 # of poster height
+        title_vspace_factor:          float         = .5 # of font height
+        signature_height_factor:      float         = 1.2 # of title height
+        signature_vspace_factor:      float         = .3 # of signature height
+        signature_font_height_factor: float         = .35 # of signature height
+        signature_hspace_factor:      float         = .35 # of signature height
+
         # Ensures enough space between covers, so shading does not overlap
-        self.cover_dist_factor      = np.maximum(self.cover_dist_factor, self.shading_factors*2)  # of cover width, height
+        cover_dist_factor      = np.maximum(cover_dist_factor, shading_factors*2)  # of cover width, height
+        
+        # Various dimensions based on cm parameters and factors
+        min_margins                 = poster_dim.height * min_margins_factor # top, bottom, left&right
+        title_font_height           = title_font_height_factor * poster_dim.height
+        title_vspace                = title_vspace_factor * title_font_height
+        signature_height            = signature_height_factor * title_font_height
+        signature_vspace            = signature_vspace_factor * signature_height
+        signature_font_height       = signature_font_height_factor * signature_height
+        signature_hspace            = signature_hspace_factor * signature_height
 
-@dataclass
-class MergedDataclass():
-    def __init__(self, dc1, dc2):
-        for field in fields(dc1):
-            setattr(self, field.name, getattr(dc1, field.name))
-        for field in fields(dc2):
-            setattr(self, field.name, getattr(dc2, field.name))
+        book_grid_area_height       = poster_dim.height - min_margins[TOP] - min_margins[BOTTOM] - title_vspace - signature_vspace - title_font_height - signature_height 
+        book_grid_area_width        = poster_dim.width - 2*min_margins[SIDES]
+        book_area_width             = book_grid_area_width / self.n_books_grid[H]
+        book_area_height            = book_grid_area_height / self.n_books_grid[V]
+        non_cover_height_factor     = self.number_of_text_lines * (book_font_height_factor * (1 + book_font_vspace_factor)) + cover_dist_factor[V]
+        cover_area_width            = book_area_width / (1 + cover_dist_factor[H])
+        cover_area_height           = book_area_height / (1 + non_cover_height_factor)
+        current_aspect_ratio        = cover_area_width / cover_area_height
 
-@dataclass
-class PosterLayout:
-    def __init__(self, initializer_dict, initializer_dataclass):
-        for key in initializer_dict:
-            setattr(self, key, initializer_dict[key])
-        for field in fields(initializer_dataclass):
-            setattr(self, field.name, getattr(initializer_dataclass, field.name))
+        # Leftover space is added to margins.
+        # This changes the cover area and requires the updating of various values
+        if current_aspect_ratio > self.default_aspect_ratio: # width changes
+            cover_area_width        = cover_area_height * self.default_aspect_ratio
+            book_area_width         = cover_area_width * (1 + cover_dist_factor[H])
+            book_grid_area_width    = book_area_width * self.n_books_grid[H]
+            min_margins[SIDES]      = (poster_dim.width - book_grid_area_width)/2.
+        else: # height changes
+            cover_area_height       = cover_area_width / self.default_aspect_ratio
+            book_area_height        = cover_area_height * (1 + non_cover_height_factor)
+            book_grid_area_height   = book_area_height * self.n_books_grid[V]
+            margins_V_increment     = (poster_dim.height - book_grid_area_height - min_margins[TOP] - min_margins[BOTTOM])/2.
+            min_margins[TOP]        += margins_V_increment
+            min_margins[BOTTOM]     += margins_V_increment
+        # Additional dimensions based on the new cover_area
+        cover_dist_w                = cover_dist_factor[H] * cover_area_width
+        cover_dist_h                = cover_dist_factor[V] * cover_area_height
+        shading_w                   = shading_factors[H] * cover_area_width
+        shading_h                   = shading_factors[V] * cover_area_height
+
+
+
+        # finals
+        self.n_books_grid_total     = np.prod(self.n_books_grid) 
+
+        # Calculate dpi to match the expected cover resolution
+        self.dpi                    = round(expected_cover_height/cover_area_height * 2.54)
+
+        # Converting layout parameters into multi-unit data types (dpi-sensitive!)
+        self.poster_dim             = Dimensions(poster_dim.width, poster_dim.height, unit="cm", dpi=self.dpi)
+        self.margins                = [Length(m, unit="cm", dpi=self.dpi) for m in min_margins]
+        self.book_grid_area         = Dimensions(book_grid_area_width, book_grid_area_height, unit="cm", dpi=self.dpi)
+        self.book_area              = Dimensions(book_area_width, book_area_height, unit="cm", dpi=self.dpi)
+        self.cover_area             = Dimensions(cover_area_width, cover_area_height, unit="cm", dpi=self.dpi)
+        self.cover_dist             = Dimensions(cover_dist_w, cover_dist_h, unit="cm", dpi=self.dpi)
+        self.shading                = Dimensions(shading_w, shading_h, unit="cm", dpi=self.dpi)
+        self.book_font_size         = Length(book_font_height_factor * cover_area_height, unit="cm", dpi=self.dpi)
+        self.book_font_vspace       = Length(book_font_vspace_factor * self.book_font_size.cm, unit="cm", dpi=self.dpi)
+        self.title_vspace           = Length(title_vspace, unit="cm", dpi=self.dpi)
+        self.title_font_size        = Length(title_font_height, unit="cm", dpi=self.dpi)
+        self.signature_height       = Length(signature_height, unit="cm", dpi=self.dpi)  
+        self.signature_font_size    = Length(signature_font_height, unit="cm", dpi=self.dpi)
+        self.signature_vspace       = Length(signature_vspace, unit="cm", dpi=self.dpi)
+        self.signature_hspace       = Length(signature_hspace, unit="cm", dpi=self.dpi)
+        
+        # Font creation (dpi-sensitive!)
+        self.title_font             = ImageFont.truetype(title_font_str, size=self.title_font_size.px)
+        self.book_font              = ImageFont.truetype(book_font_str, size=self.book_font_size.px)
+        self.signature_font         = ImageFont.truetype(signature_font_str, size=self.signature_font_size.px)
+
 
     def get_text_width_px(self, text: str, font: ImageFont) -> int:
         dummy_poster = Image.new("RGB", (200,50), 'white')
@@ -147,91 +198,6 @@ class PosterLayout:
         pos_y = sig_pos.y_cm + self.signature_height.cm / 2.
         return Position(pos_x, pos_y, unit="cm", dpi=self.dpi)
 
-
-class PosterLayoutFactory:
-    '''Creates a PosterLayout object based on the parameters'''
-
-    def __init__(self, params_public: PosterParametersPublic, params_private: PosterParametersPrivate) -> None:
-        self.p_public = params_public 
-        self.p = MergedDataclass(params_private, params_public)
-        # Dictionary of calculated parameters
-        self.out = dict()
-    
-    # def __post_init__(self):
-        self.n_books_grid_total = np.prod(self.p.n_books_grid) 
-
-        # Various dimensions based on cm parameters and factors
-        min_margins                 = self.p.poster_dim.height * self.p.min_margins_factor # top, bottom, left&right
-        title_font_height           = self.p.title_font_height_factor * self.p.poster_dim.height
-        title_vspace                = self.p.title_vspace_factor * title_font_height
-        signature_height            = self.p.signature_height_factor * title_font_height
-        signature_vspace            = self.p.signature_vspace_factor * signature_height
-        signature_font_height       = self.p.signature_font_height_factor * signature_height
-        signature_hspace            = self.p.signature_hspace_factor * signature_height
-
-        book_grid_area_height       = self.p.poster_dim.height - min_margins[TOP] - min_margins[BOTTOM] - title_vspace - signature_vspace - title_font_height - signature_height 
-        book_grid_area_width        = self.p.poster_dim.width - 2*min_margins[SIDES]
-        book_area_width             = book_grid_area_width / self.p.n_books_grid[H]
-        book_area_height            = book_grid_area_height / self.p.n_books_grid[V]
-        non_cover_height_factor     = self.p.number_of_text_lines * (self.p.book_font_height_factor * (1 + self.p.book_font_vspace_factor)) + self.p.cover_dist_factor[V]
-        cover_area_width            = book_area_width / (1 + self.p.cover_dist_factor[H])
-        cover_area_height           = book_area_height / (1 + non_cover_height_factor)
-        current_aspect_ratio        = cover_area_width / cover_area_height
-
-        # Leftover space is added to margins.
-        # This changes the cover area and requires the updating of various values
-        if current_aspect_ratio > self.p.default_aspect_ratio: # width changes
-            cover_area_width        = cover_area_height * self.p.default_aspect_ratio
-            book_area_width         = cover_area_width * (1 + self.p.cover_dist_factor[H])
-            book_grid_area_width    = book_area_width * self.p.n_books_grid[H]
-            min_margins[SIDES]      = (self.p.poster_dim.width - book_grid_area_width)/2.
-        else: # height changes
-            cover_area_height       = cover_area_width / self.p.default_aspect_ratio
-            book_area_height        = cover_area_height * (1 + non_cover_height_factor)
-            book_grid_area_height   = book_area_height * self.p.n_books_grid[V]
-            margins_V_increment     = (self.p.poster_dim.height - book_grid_area_height - min_margins[TOP] - min_margins[BOTTOM])/2.
-            min_margins[TOP]        += margins_V_increment
-            min_margins[BOTTOM]     += margins_V_increment
-        # Additional dimensions based on the new cover_area
-        cover_dist_w                = self.p.cover_dist_factor[H] * cover_area_width
-        cover_dist_h                = self.p.cover_dist_factor[V] * cover_area_height
-        shading_w                   = self.p.shading_factors[H] * cover_area_width
-        shading_h                   = self.p.shading_factors[V] * cover_area_height
-        
-
-        # Calculate dpi to match the expected cover resolution
-        self.out["dpi"]                    = round(self.p.expected_cover_height/cover_area_height * 2.54)
-
-        # Converting layout parameters into multi-unit data types (dpi-sensitive!)
-        self.out["poster_dim"]             = Dimensions(self.p.poster_dim.width, self.p.poster_dim.height, unit="cm", dpi=self.dpi)
-        self.out["margins"]                = [Length(m, unit="cm", dpi=self.dpi) for m in min_margins]
-        self.out["book_grid_area"]         = Dimensions(book_grid_area_width, book_grid_area_height, unit="cm", dpi=self.dpi)
-        self.out["book_area"]              = Dimensions(book_area_width, book_area_height, unit="cm", dpi=self.dpi)
-        self.out["cover_area"]             = Dimensions(cover_area_width, cover_area_height, unit="cm", dpi=self.dpi)
-        self.out["cover_dist"]             = Dimensions(cover_dist_w, cover_dist_h, unit="cm", dpi=self.dpi)
-        self.out["shading"]                = Dimensions(shading_w, shading_h, unit="cm", dpi=self.dpi)
-        self.out["book_font_size"]         = Length(self.p.book_font_height_factor * cover_area_height, unit="cm", dpi=self.dpi)
-        self.out["book_font_vspace"]       = Length(self.p.book_font_vspace_factor * self.book_font_size.cm, unit="cm", dpi=self.dpi)
-        self.out["title_vspace"]           = Length(title_vspace, unit="cm", dpi=self.dpi)
-        self.out["title_font_size"]        = Length(title_font_height, unit="cm", dpi=self.dpi)
-        self.out["signature_height"]       = Length(signature_height, unit="cm", dpi=self.dpi)  
-        self.out["signature_font_size"]    = Length(signature_font_height, unit="cm", dpi=self.dpi)
-        self.out["signature_vspace"]       = Length(signature_vspace, unit="cm", dpi=self.dpi)
-        self.out["signature_hspace"]       = Length(signature_hspace, unit="cm", dpi=self.dpi)
-        
-        # Font creation (dpi-sensitive!)
-        self.out["title_font"]             = ImageFont.truetype(self.p.title_font_str, size=self.title_font_size.px)
-        self.out["book_font"]              = ImageFont.truetype(self.p.book_font_str, size=self.book_font_size.px)
-        self.out["signature_font"]         = ImageFont.truetype(self.p.signature_font_str, size=self.signature_font_size.px)
-
-    def get_poster_layout(self) -> PosterLayout:
-        return PosterLayout(self.out, self.p_public)
-
-def get_poster_layout():
-    p_public = PosterParametersPublic()
-    p_private = PosterParametersPrivate()
-    factory = PosterLayoutFactory(p_public, p_private)
-    return factory.get_poster_layout()
 
 if __name__ == '__main__':
     from book_poster_creator import main
