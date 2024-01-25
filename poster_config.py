@@ -11,13 +11,48 @@ class Config():
     # end_date = datetime(year=2022, month=1, day=1, tzinfo=timezone.utc)
     end_date = datetime.now(tz=timezone.utc)
 
+    output_file:            str                 = "poster.jpg"
+    input_rss_file:         str                 = "rss_urls.txt"
 
-    credit_str = 'Created with'
+    credit_str = 'Created with the\nBook Poster Creator by N. Römheld'
     credit_url = 'https://github.com/n-roemheld/book-poster'
 
     def get_title_str(self):
         title_str = f'Books read between {str(self.start_date.date())} and {str(self.end_date.date())}'
         return title_str
+    
+    def get_book_str(self, book: dict) -> tuple[str, str]:
+        # Available information in book (examples): 'title', 'author_name', 'book_published', 'num_pages', 'average_rating', 'user_rating', 'user_read_at', 'user_date_created', 'user_date_added'
+        read_date = str(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').date())
+        user_rating =  f'{book["user_rating"]}' + u"\u2605"
+        goodreads_rating =  f'{float(book["average_rating"]):.1f}' + u"\u2606"
+        rating_str = user_rating
+        if int(book['user_rating']) == 0: # no user rating
+            rating_str = f'<{goodreads_rating}>'
+            user_rating = ''
+        n_pages_str = f'{book["num_pages"]} pages'
+        if book['num_pages'] == '': # no number of pages    
+            n_pages_str = ''
+        book_str = f'Read {read_date}\n{n_pages_str} {goodreads_rating} {user_rating}'
+        align_multiline = 'center'
+        return book_str, align_multiline
+    
+    def get_num_book_text_lines(self) -> int:
+        dummy_book = {
+            'title':             '', 
+            'author_name':       '', 
+            'book_published':    'Sat, 1 Jan 2000 00:00:00 +0000', 
+            'num_pages':         '0', 
+            'average_rating':    '0', 
+            'user_rating':       '0', 
+            'user_read_at':      'Sat, 1 Jan 2000 00:00:00 +0000', 
+            'user_date_created': 'Sat, 1 Jan 2000 00:00:00 +0000', 
+            'user_date_added':   'Sat, 1 Jan 2000 00:00:00 +0000',
+            }
+        book_str, _ = self.get_book_str(dummy_book)
+        num_lines = len(book_str.split('\n'))
+        return num_lines
+
 
 
 if __name__ == '__main__':

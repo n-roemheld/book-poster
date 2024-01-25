@@ -1,8 +1,5 @@
 # Future work:
 # TODO: Add a shadow to the books (plot blurred rectangle first, use mask to blurr selectively? or paste blurred image?)
-# TODO: Add the started reading date
-# TODO: Add a Title, e.g. "Books read betweey x and y"
-# TODO: Add a signature with QR codes for the repository (made with...) and goodreads profile (follow me on goodreads)
 # TODO: Font color options
 # TODO: Refactor code with class structure
 
@@ -17,7 +14,7 @@ from PIL import Image, ImageDraw
 import feedparser
 import poster_config
 from Dimensions_file import Dimensions
-import layout_generator 
+import layout_generator
 
 H = 0 # horizontal index
 V = 1 # vertical intex
@@ -30,22 +27,21 @@ def main() -> None:
     #          Recommended: To get the 100 books you read last, add '&sort=user_read_at' at the end of the rss url.
     #          For posters with more than 100 books, split shelves into shelves with less than 100 books.
     #          Duplicates are eliminated.
-    rss_urls    = read_rss_urls()
-    layout      = layout_generator.PosterLayout()
+    layout      = layout_generator.PosterLayoutCreator().create_poster_layout()
     config      = poster_config.Config()
+    rss_urls    = read_rss_urls(config.input_rss_file)
     creator     = Book_poster_creator(layout, config, rss_urls)
     creator.create_poster_image()
 
-def read_rss_urls() -> list[str]:
-    # TODO: Trim strings
-    # TODO: Introduce compatibility with shelf link by changing ".../list/..."  ".../list_rss/..."
-    # TODO: If not present, append "&sort=user_read_at" and other sort options to the rss url
-    if exists('rss_urls2.txt'):
-        filename = 'rss_urls.txt'
-    else:
-        filename = 'rss_urls_test.txt'
-    with open(filename) as f:
-        rss_urls = [line for line in f.readlines()]
+def read_rss_urls(input_rss_file: str) -> list[str]:
+    with open(input_rss_file) as f:
+        rss_urls = [line.strip().strip('-,.:;!#$%^&*_=+<> ') for line in f.readlines()]
+    rss_urls = [line for line in rss_urls if line] # removes empty lines
+    for line in rss_urls:
+        if not '&sort=' in line:
+            line += '&sort=user_read_at'
+        if not '/list_rss/' in line and '/list/' in line:
+            line = ''.join(line.split('/list/')[0], '/list_rss/', line.split('/list/')[1])
     return rss_urls
 
 
@@ -129,7 +125,7 @@ class Book_poster_creator:
         
         # Save the poster
         print('Saving Poster...')
-        poster_image.save(self.layout.output_file)
+        poster_image.save(self.config.output_file)
         print('Done!')
 
     def grid_position(self, i):
@@ -141,16 +137,9 @@ class Book_poster_creator:
         # Add book-specific information below the cover
         # Available information in book (examples): 'title', 'author_name', 'book_published', 'num_pages', 'average_rating', 'user_rating', 'user_read_at', 'user_date_created', 'user_date_added'
         if book['user_read_at'] != '':
-            read_date = str(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').date())
-            started_reading_date = str(datetime.strptime(book['user_date_created'], '%a, %d %b %Y %H:%M:%S %z').date())
-            text = read_date
-            if self.layout.print_rating:
-                if int(book['user_rating']) > 0:
-                    text = text + f' ({book["user_rating"]}' + u"\u2605" + ')'
-                else:
-                    text = text + f' ({float(book["average_rating"]):.1f}' + u"\u2606" + ')'
+            text, align_multiline = self.config.get_book_str(book)
             text_position = self.layout.get_cover_text_position(col, row, [text], line_index=0)
-            draw.text(text_position.dim_px, text, fill="black", font=self.layout.book_font, align='center', anchor='ma')
+            draw.text(text_position.dim_px, text, fill="black", font=self.layout.book_font, align=align_multiline, anchor='ma')
 
     def add_cover_to_poster(self, poster_image, draw, book, row, col) -> None:
         # Load cover image
@@ -309,7 +298,7 @@ class Auxiliary_text_creator:
     def add_right_signature(self, poster_image, draw):
         signature_text_position = self.layout.get_signature_text_position_right()
         signature_qr_code_position = self.layout.get_signature_position_right()
-        draw.text(signature_text_position.xy_px, self.config.credit_str, font=self.layout.signature_font, fill="black", align='center', anchor='rm')
+        draw.text(signature_text_position.xy_px, self.config.credit_str, font=self.layout.signature_font, fill="black", align='right', anchor='rm')
         qr_code = self.create_qr_code(self.config.credit_url, self.layout.get_qr_code_size().dim_px[0])
         poster_image.paste(qr_code, signature_qr_code_position.xy_px)
 
@@ -317,7 +306,7 @@ class Auxiliary_text_creator:
         signature_str = f'Follow {user_name} on Goodreads!'
         signature_text_position = self.layout.get_signature_text_position_left()
         signature_qr_code_position = self.layout.get_signature_position_left()
-        draw.text(signature_text_position.xy_px, signature_str, font=self.layout.signature_font, fill="black", align='center', anchor='lm')
+        draw.text(signature_text_position.xy_px, signature_str, font=self.layout.signature_font, fill="black", align='left', anchor='lm')
         qr_code = self.create_qr_code(user_profile_link, self.layout.get_qr_code_size().dim_px[0])
         poster_image.paste(qr_code, signature_qr_code_position.xy_px)
         

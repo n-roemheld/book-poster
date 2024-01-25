@@ -1,4 +1,4 @@
-from typing import NamedTuple
+from typing import NamedTuple, Literal
 
 INCH_IN_CM = 2.54
 
@@ -6,7 +6,7 @@ class Length:
     '''Class for handling lengths in pixels and cm'''
     # length_px : Dimensions_pixel = (0,0)
     # length_cm : Dimensions_cm = (0.,0.)
-    def __init__(self, length_in: float, unit: str = 'px', dpi: int = 208) -> None:
+    def __init__(self, length_in: float, unit: Literal['px','cm'], dpi: int) -> None:
         self._dpi = dpi
         self._px_to_cm_factor = INCH_IN_CM / self._dpi
         if unit == 'px':
@@ -39,7 +39,7 @@ class Dimensions_cm(NamedTuple):
 
 class Dimensions: 
     '''Class for handling dimensions in pixels and cm'''
-    def __init__(self, width: float, height: float, unit: str = 'px', dpi: int = 208) -> None:
+    def __init__(self, width: float, height: float, unit: Literal['px','cm'], dpi: int) -> None:
         self._dpi = dpi
         self._px_to_cm_factor = INCH_IN_CM / self._dpi
         self.instanciated_as = unit # for debugging only

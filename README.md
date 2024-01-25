@@ -1,6 +1,6 @@
 # Create a Poster of Read Books from Goodreads
 Creates a poster with the book covers from your 'read' shelf on goodreads.com with your 'read' date printed beneath each cover.
-![grafik](https://raw.githubusercontent.com/n-roemheld/book-poster/main/poster_test.jpg)
+![grafik](https://raw.githubusercontent.com/n-roemheld/book-poster/dev/poster_test.jpg)
 
 # How to use
 This tool is based on the goodreads feature to export your shelves as RSS feeds. You can find the button to get the URL for the RSS feed at the bottom of the shelf.
@@ -11,4 +11,6 @@ However, if you want to create a poster with more than 100 book covers, you shou
 This is annoying but necessary since the RSS export only supports upto 100 books.
 If you want to use the 100 books you reast last, you can add '&sort=user_read_at' to the end of the RSS URL.
 
-The other parameters of the poster can be changed in the poster_cofig.py file.
+The other parameters of the poster can be changed in the poster_cofig.py and layout_generator.py files.
+
+Note: This was only tested with Python 3.12 yet. Backwards compatibility may not be guaranteed.

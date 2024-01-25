@@ -1,9 +1,10 @@
-from dataclasses import dataclass, fields, Field
+from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from typing import NamedTuple
 from datetime import datetime, timezone
 from Dimensions_file import Dimensions, Dimensions_cm, Length, Position
+from poster_config import Config
 
 H = 0 # horizontal index
 V = 1 # vertical intex
@@ -12,16 +13,39 @@ TOP = 0 # top margin index
 BOTTOM = 1 # bottom margin index
 SIDES = 2 # sides margin index
 
+class Area:
+    content = list()
+    def __init__(self, position: Position, dimensions: Dimensions):
+        self.position = position
+        self.dimensions = dimensions
+
+
+# @dataclass
+# class YearShadingParameters:
+#     do_it:      bool      
+#     color1_hex: str       
+#     color2_hex: str       
+#     protrusion: Dimensions
+
+# @dataclass
+# class TiteParameters:
+#     do_it:      bool      
+#     vspace:     Length       
+#     font_size:  Length
+#     font:       ImageFont
+#     _dpi:       int
+#     @property
+#     def font_size(self):
+#         return Length(self.font.size, unit="px", dpi=self._dpi)
 
 @dataclass
-class PosterLayout:
+class PosterLayoutCreator:
+
     # Poster design parameters that are used externally unmodified
-    output_file:            str                 = "poster.jpg"
     background_color_hex:   str                 = "#FFFFFF"
     year_shading:           bool                = True
     year_shading_color1_hex:str                 = "#FFFFFF"
     year_shading_color2_hex:str                 = "#CCCCCC"
-    number_of_text_lines:   int                 = 1 # TODO: make dynamic, depending on text used
     print_rating:           bool                = True
     print_title:            bool                = True
     print_signature:        bool                = True
@@ -35,6 +59,7 @@ class PosterLayout:
         book_font_str:          str                 = "./fonts/Lato-star.ttf"
         signature_font_str:     str                 = "./fonts/Lato-star.ttf"
         expected_cover_height:  int                 = 475 # px, common height of cover images on goodreads, used for dpi calculations
+        config:                 Config              = Config()  
 
         # Factors
         cover_dist_factor                           = np.array([.01,.01])  # of cover width, height
@@ -51,7 +76,10 @@ class PosterLayout:
         signature_hspace_factor:      float         = .35 # of signature height
 
         # Ensures enough space between covers, so shading does not overlap
-        cover_dist_factor      = np.maximum(cover_dist_factor, shading_factors*2)  # of cover width, height
+        cover_dist_factor      = np.maximum(cover_dist_factor, shading_factors * 2)  # of cover width, height
+
+        
+        self.number_of_text_lines = config.get_num_book_text_lines()
         
         # Various dimensions based on cm parameters and factors
         min_margins                 = poster_dim.height * min_margins_factor # top, bottom, left&right
@@ -66,7 +94,8 @@ class PosterLayout:
         book_grid_area_width        = poster_dim.width - 2*min_margins[SIDES]
         book_area_width             = book_grid_area_width / self.n_books_grid[H]
         book_area_height            = book_grid_area_height / self.n_books_grid[V]
-        non_cover_height_factor     = self.number_of_text_lines * (book_font_height_factor * (1 + book_font_vspace_factor)) + cover_dist_factor[V]
+        # non_cover_height_factor     = self.number_of_text_lines * (book_font_height_factor * (1 + book_font_vspace_factor)) + cover_dist_factor[V]
+        non_cover_height_factor     = (self.number_of_text_lines + book_font_vspace_factor) * book_font_height_factor + cover_dist_factor[V]
         cover_area_width            = book_area_width / (1 + cover_dist_factor[H])
         cover_area_height           = book_area_height / (1 + non_cover_height_factor)
         current_aspect_ratio        = cover_area_width / cover_area_height
@@ -92,10 +121,6 @@ class PosterLayout:
         shading_h                   = shading_factors[V] * cover_area_height
 
 
-
-        # finals
-        self.n_books_grid_total     = np.prod(self.n_books_grid) 
-
         # Calculate dpi to match the expected cover resolution
         self.dpi                    = round(expected_cover_height/cover_area_height * 2.54)
 
@@ -110,18 +135,90 @@ class PosterLayout:
         self.book_font_size         = Length(book_font_height_factor * cover_area_height, unit="cm", dpi=self.dpi)
         self.book_font_vspace       = Length(book_font_vspace_factor * self.book_font_size.cm, unit="cm", dpi=self.dpi)
         self.title_vspace           = Length(title_vspace, unit="cm", dpi=self.dpi)
-        self.title_font_size        = Length(title_font_height, unit="cm", dpi=self.dpi)
+        title_font_size        = Length(title_font_height, unit="cm", dpi=self.dpi)
         self.signature_height       = Length(signature_height, unit="cm", dpi=self.dpi)  
-        self.signature_font_size    = Length(signature_font_height, unit="cm", dpi=self.dpi)
+        signature_font_size    = Length(signature_font_height, unit="cm", dpi=self.dpi)
         self.signature_vspace       = Length(signature_vspace, unit="cm", dpi=self.dpi)
         self.signature_hspace       = Length(signature_hspace, unit="cm", dpi=self.dpi)
         
         # Font creation (dpi-sensitive!)
-        self.title_font             = ImageFont.truetype(title_font_str, size=self.title_font_size.px)
+        self.title_font             = ImageFont.truetype(title_font_str, size=title_font_size.px)
         self.book_font              = ImageFont.truetype(book_font_str, size=self.book_font_size.px)
-        self.signature_font         = ImageFont.truetype(signature_font_str, size=self.signature_font_size.px)
+        self.signature_font         = ImageFont.truetype(signature_font_str, size=signature_font_size.px)
 
+    def create_poster_layout(self):
+        return PosterLayout(      
+            background_color_hex    = self.background_color_hex,    
+            year_shading            = self.year_shading,            
+            year_shading_color1_hex = self.year_shading_color1_hex, 
+            year_shading_color2_hex = self.year_shading_color2_hex, 
+            print_rating            = self.print_rating,            
+            print_title             = self.print_title,             
+            print_signature         = self.print_signature,         
+            n_books_grid            = self.n_books_grid,            
+            default_aspect_ratio    = self.default_aspect_ratio,     
+            dpi                     = self.dpi,                     
+            poster_dim              = self.poster_dim,              
+            margins                 = self.margins,                 
+            book_grid_area          = self.book_grid_area,          
+            book_area               = self.book_area,               
+            cover_area              = self.cover_area,              
+            cover_dist              = self.cover_dist,              
+            shading                 = self.shading,                 
+            book_font_vspace        = self.book_font_vspace,        
+            title_vspace            = self.title_vspace,             
+            signature_height        = self.signature_height,        
+            signature_vspace        = self.signature_vspace,        
+            signature_hspace        = self.signature_hspace,        
+            title_font              = self.title_font,              
+            book_font               = self.book_font,               
+            signature_font          = self.signature_font,          
+            number_of_text_lines    = self.number_of_text_lines,
+        )
 
+@dataclass
+class PosterLayout:     
+    background_color_hex:   str           
+    year_shading:           bool          
+    year_shading_color1_hex:str           
+    year_shading_color2_hex:str           
+    print_rating:           bool          
+    print_title:            bool          
+    print_signature:        bool          
+    n_books_grid:           tuple[int,int]
+    default_aspect_ratio:   float         
+    dpi:                    int
+    poster_dim:             Dimensions
+    margins:                list[Length]
+    book_grid_area:         Dimensions
+    book_area:              Dimensions
+    cover_area:             Dimensions
+    cover_dist:             Dimensions
+    shading:                Dimensions
+    book_font_vspace:       Length
+    title_vspace:           Length
+    signature_height:       Length
+    signature_vspace:       Length
+    signature_hspace:       Length
+    title_font:             ImageFont
+    book_font:              ImageFont
+    signature_font:         ImageFont
+    number_of_text_lines:   int           
+
+    @property
+    def n_books_grid_total(self) -> int:
+        return np.prod(self.n_books_grid)
+    @property
+    def book_font_size(self) -> Length:
+        return Length(self.book_font.size, unit="px", dpi=self.dpi)
+    @property
+    def title_font_size(self) -> Length:
+        return Length(self.title_font.size, unit="px", dpi=self.dpi)
+    @property
+    def signature_font_size(self) -> Length:
+        return Length(self.signature_font.size, unit="px", dpi=self.dpi)
+
+    
     def get_text_width_px(self, text: str, font: ImageFont) -> int:
         dummy_poster = Image.new("RGB", (200,50), 'white')
         draw = ImageDraw.Draw(dummy_poster)
@@ -152,7 +249,8 @@ class PosterLayout:
         return Position(
                 cover_area_position.x_cm + self.cover_area.width_cm + self.shading.width_cm,
                 # self.margins[SIDES].cm + (cover_index_H + 1) * self.book_area.width_cm, # inferior alternative for horizontal position
-                text_position_last_line.y_cm + self.book_font_size.cm + self.shading.height_cm,
+                cover_area_position.y_cm + self.book_area.height_cm - self.cover_dist.height_cm + self.shading.height_cm,
+                # text_position_last_line.y_cm + self.book_font_size.cm + self.shading.height_cm,
                 # self.margins[TOP].cm + self.title_font_size.cm + self.title_vspace.cm + (cover_index_V + 1) * self.book_area.height_cm + self.cover_dist.height_cm/4.,
                 unit="cm", dpi=self.dpi)
 
