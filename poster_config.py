@@ -3,6 +3,11 @@ from dataclasses import dataclass
 
 @ dataclass 
 class Config():
+    DEFAULT_READ_DATE = datetime(year=1900, month=1, day=1, tzinfo=timezone.utc)
+
+    input_rss_file:         str                 = "rss_urls_test.txt"
+    output_file:            str                 = "poster_test.jpg"
+
     # Start date
     # Only books read after this date are included  
     start_date = datetime(year=2015, month=1, day=1, tzinfo=timezone.utc)
@@ -10,9 +15,6 @@ class Config():
     # Only books read before this date are included  
     # end_date = datetime(year=2022, month=1, day=1, tzinfo=timezone.utc)
     end_date = datetime.now(tz=timezone.utc)
-
-    output_file:            str                 = "poster.jpg"
-    input_rss_file:         str                 = "rss_urls.txt"
 
     credit_str = 'Created with the\nBook Poster Creator by N. Römheld'
     credit_url = 'https://github.com/n-roemheld/book-poster'
@@ -23,17 +25,19 @@ class Config():
     
     def get_book_str(self, book: dict) -> tuple[str, str]:
         # Available information in book (examples): 'title', 'author_name', 'book_published', 'num_pages', 'average_rating', 'user_rating', 'user_read_at', 'user_date_created', 'user_date_added'
-        read_date = str(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').date())
-        user_rating =  f'{book["user_rating"]}' + u"\u2605"
+        read_date_str = ''
+        if book['user_read_at'] != '':
+            read_date_str = str(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z').date())
         goodreads_rating =  f'{float(book["average_rating"]):.1f}' + u"\u2606"
-        rating_str = user_rating
-        if int(book['user_rating']) == 0: # no user rating
-            rating_str = f'<{goodreads_rating}>'
-            user_rating = ''
-        n_pages_str = f'{book["num_pages"]} pages'
-        if book['num_pages'] == '': # no number of pages    
-            n_pages_str = ''
-        book_str = f'Read {read_date}\n{n_pages_str} {goodreads_rating} {user_rating}'
+        rating_str = f'<{goodreads_rating}>'
+        user_rating = ''
+        if int(book['user_rating']) != 0: 
+            user_rating =  f'{book["user_rating"]}' + u"\u2605"
+            rating_str = f'<{user_rating}>'
+        n_pages_str = ''
+        if book['num_pages'] != '':  
+            n_pages_str = f'{book["num_pages"]} pages'
+        book_str = f'Read {read_date_str}\n{n_pages_str} {goodreads_rating} {user_rating}'
         align_multiline = 'center'
         return book_str, align_multiline
     

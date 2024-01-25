@@ -35,7 +35,7 @@ def main() -> None:
 
 def read_rss_urls(input_rss_file: str) -> list[str]:
     with open(input_rss_file) as f:
-        rss_urls = [line.strip().strip('-,.:;!#$%^&*_=+<> ') for line in f.readlines()]
+        rss_urls = [line.strip().strip('-,.:;!#$%^&*_=+<>\'\" ') for line in f.readlines()]
     rss_urls = [line for line in rss_urls if line] # removes empty lines
     for line in rss_urls:
         if not '&sort=' in line:
@@ -199,7 +199,7 @@ class Book_loader:
         read_at_list = []
         for book in books:
             if book['user_read_at'] == '': # no read date entered
-                read_at_list.append(datetime(year=1900, month=1, day=1, tzinfo=timezone.utc))
+                read_at_list.append(self.config.DEFAULT_READ_DATE)
             else:
                 read_at_list.append(datetime.strptime(book['user_read_at'], '%a, %d %b %Y %H:%M:%S %z'))
         read_at_list = np.array(read_at_list)
