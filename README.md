@@ -4,6 +4,7 @@ Creates a poster with the book covers from your 'read' shelf on goodreads.com wi
 
 # How to use
 Paste the URL of your 'Read' shelf/shelves into the text file shelf_urls_test.txt and run the book_poster_creator.py Python script.
+In- and output files can be changed in poster_config.py.
 
 Caution: If you want to create a poster with more than 100 books, you should split your shelf into multiple shelves with upto 100 books.
 This is annoying but necessary since the Goodreads RSS feature, which this tool is based on, only supports upto 100 books.
