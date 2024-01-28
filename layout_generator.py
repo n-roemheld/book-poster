@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 from typing import NamedTuple, Literal
 from datetime import datetime, timezone
 from Dimensions_file import Dimensions, Dimensions_cm, Length, Position, Dimensions_px
-from poster_config import Config
+from poster_config import Config, ConfigLayout
 
 H = 0 # horizontal index
 V = 1 # vertical intex
@@ -16,48 +16,23 @@ SIDES = 2 # sides margin index
 
 
 
-@dataclass
 class PosterLayoutCreator:
-    signature       = {}
-    title           = {}
-    year_shading    = {}
-    poster          = {}
-    grid            = {}
-    book            = {}
+    signature       : dict
+    title           : dict
+    year_shading    : dict
+    poster          : dict
+    grid            : dict
+    book            : dict
+    poster, grid, year_shading, book, title, signature = ConfigLayout().get_layout_config_dicts()
+    config          = Config()  
+    def __init__(self):
+        self.calculate_layout()
 
-    # Poster design parameters that are used externally unmodified
-    config                                                  = Config()  
-    poster['background_color_hex']:     str                 = "#FFFFFF"
-    poster['dim']:                      Dimensions_cm       = Dimensions_cm(width=60, height=90)
-    poster['min_margins_factor']                            = .01 * np.array([1,1,1]) # of poster height
-    grid['n_books']:                    tuple[int,int]      = (8,8)
-    grid['cover_dist_factor']                               = np.array([.01,.01])  # of cover width, height
-    year_shading['enable']:             bool                = True
-    year_shading['color1_hex']:         str                 = "#FFFFFF"
-    year_shading['color2_hex']:         str                 = "#CCCCCC"
-    year_shading['factors']                                 = 1 * np.array([.1,.05]) # of cover width, height
-    book['rating_print']:               bool                = True
-    book['default_aspect_ratio']:       float               = .6555
-    book['font_str']:                   str                 = "./fonts/Lato-star.ttf"
-    book['expected_cover_height']:      int                 = 475 # px, common height of cover images on goodreads, used for dpi calculations
-    book['shadow_factors']                                  = np.array([.03,.06]) # of cover width, height
-    book['font_height_factor']:         float               = 1/15. # of cover height
-    book['font_vspace_factor']:         float               = 1/4. # of font height
-    title['enable']:                    bool                = True
-    title['font_str']:                  str                 = "./fonts/Merriweather-Regular.ttf"
-    title['font_height_factor']:        float               = .02 # of poster height
-    title['vspace_factor']:             float               = .5 # of font height
-    signature['enable']:                bool                = True
-    signature['font_str']:              str                 = "./fonts/Lato-star.ttf"
-    signature['height_factor']:         float               = 1.2 # of title height
-    signature['vspace_factor']:         float               = .3 # of signature height
-    signature['font_height_factor']:    float               = .35 # of signature height
-    signature['hspace_factor']:         float               = .35 # of signature height
 
-    def __post_init__(self):
+    def calculate_layout(self):
         # Ensures enough space between covers, so shading does not overlap
         self.grid['cover_dist_factor']      = np.maximum(self.grid['cover_dist_factor'], self.year_shading['factors'] * 2)  # of cover width, height
-        self.book['number_of_text_lines']   = self.config.get_num_book_text_lines()
+        self.book['number_of_text_lines']   = self.get_num_book_text_lines()
         # Various dimensions based on cm parameters and factors
         self.calculate_layout_parameters_from_factors()
         # Leftover space is added to margins.
@@ -67,7 +42,27 @@ class PosterLayoutCreator:
         self.dpi                        = round(self.book['expected_cover_height']/self.book['cover_area_height'] * 2.54)
         # Converting layout parameters into multi-unit data types (dpi-sensitive!)
         self.convert_parameters_to_multiunit_format()
+    
+    def get_num_book_text_lines(self) -> int:
+        dummy_book = self.create_dummy_book()
+        book_str, _ = self.config.get_book_str(dummy_book)
+        num_lines = len(book_str.split('\n'))
+        return num_lines
 
+    def create_dummy_book(self):
+        dummy_book = {
+            'title':             '', 
+            'author_name':       '', 
+            'book_published':    'Sat, 1 Jan 2000 00:00:00 +0000', 
+            'num_pages':         '0', 
+            'average_rating':    '0', 
+            'user_rating':       '0', 
+            'user_read_at':      'Sat, 1 Jan 2000 00:00:00 +0000', 
+            'user_date_created': 'Sat, 1 Jan 2000 00:00:00 +0000', 
+            'user_date_added':   'Sat, 1 Jan 2000 00:00:00 +0000',
+            }            
+        return dummy_book
+    
     def convert_parameters_to_multiunit_format(self):
         self.convert_poster_parameters_to_multiunit_format()
         self.convert_grid_parameters_to_multiunit_format()
@@ -91,7 +86,7 @@ class PosterLayoutCreator:
         self.book['cover_area']         = Dimensions(self.book['cover_area_width'], self.book['cover_area_height'], unit="cm", dpi=self.dpi)
         self.book['font_size']          = Length(self.book['font_height_factor'] * self.book['cover_area_height'], unit="cm", dpi=self.dpi)
         self.book['font_vspace']        = Length(self.book['font_vspace_factor'] * self.book['font_size'].cm, unit="cm", dpi=self.dpi)
-        self.book['font']               = ImageFont.truetype(self.book['font_str'], size=self.book['font_size'].px)
+        self.book['font']               = ImageFont.truetype(self.book['font_path'], size=self.book['font_size'].px)
 
     def convert_year_shading_parameters_to_multiunit_format(self):
         shading_w                       = self.year_shading['factors'][H] * self.book['cover_area_width']
@@ -101,14 +96,14 @@ class PosterLayoutCreator:
     def convert_title_parameters_to_multiunit_format(self):
         self.title['vspace']            = Length(self.title['vspace'], unit="cm", dpi=self.dpi)
         self.title['font_size']         = Length(self.title['font_height'], unit="cm", dpi=self.dpi)
-        self.title['font']              = ImageFont.truetype(self.title['font_str'], size=self.title['font_size'].px)
+        self.title['font']              = ImageFont.truetype(self.title['font_path'], size=self.title['font_size'].px)
 
     def convert_signature_parameters_to_multiunit_format(self):
         self.signature['height']        = Length(self.signature['height'], unit="cm", dpi=self.dpi)  
         self.signature['font_size']     = Length(self.signature['font_height'], unit="cm", dpi=self.dpi)
         self.signature['vspace']        = Length(self.signature['vspace'], unit="cm", dpi=self.dpi)
         self.signature['hspace']        = Length(self.signature['hspace'], unit="cm", dpi=self.dpi)
-        self.signature['font']          = ImageFont.truetype(self.signature['font_str'], size=self.signature['font_size'].px)
+        self.signature['font']          = ImageFont.truetype(self.signature['font_path'], size=self.signature['font_size'].px)
 
     def calculate_layout_parameters_from_factors(self):
         self.poster['min_margins']          = self.poster['dim'].height * self.poster['min_margins_factor'] # top, bottom, left&right

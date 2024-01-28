@@ -157,7 +157,7 @@ class Book_poster_creator:
         '''Resampling the cover images with the appropriate resolution'''
         aspect_ratio = cover_image.size[H] / cover_image.size[V]
         # If the cover's aspect ratio is similar to the optimal aspect ratio, the cover is stretched.
-        if np.maximum(aspect_ratio/self.layout.book.default_aspect_ratio, self.layout.book.default_aspect_ratio/aspect_ratio) < 1.2:
+        if np.maximum(aspect_ratio/self.layout.book.default_aspect_ratio, self.layout.book.default_aspect_ratio/aspect_ratio) < self.config.aspect_ratio_stretch_tolerance:
             cover_image_size = self.layout.book.cover_area.dim_px
         elif (self.layout.book.default_aspect_ratio < aspect_ratio):
             cover_image_size = (self.layout.book.cover_area.width_px, np.round(self.layout.book.cover_area.width_px / aspect_ratio).astype(int))
