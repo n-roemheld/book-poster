@@ -5,7 +5,7 @@
 
 
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime
 import os
 from os.path import exists
 import urllib
@@ -38,15 +38,15 @@ def read_rss_urls(input_rss_file: str) -> list[str]:
         rss_urls = [line.strip().strip('-,.:;!#$%^&*_=+<>\'\" ') for line in f.readlines()]
     rss_urls = [line for line in rss_urls if line] # removes empty lines
     for line in rss_urls:
-        if not '&sort=' in line:
+        if '&sort=' not in line:
             line += '&sort=user_read_at'
-        if not '/list_rss/' in line and '/list/' in line:
+        if '/list_rss/' not in line and '/list/' in line:
             line = ''.join(line.split('/list/')[0], '/list_rss/', line.split('/list/')[1])
     return rss_urls
 
 
 class Book_poster_creator:
-    def __init__(self, layout, config, rss_urls) -> None:
+    def __init__(self, layout: layout_generator.PosterLayout, config: poster_config.Config, rss_urls: list[str]) -> None:
         self.layout = layout
         self.config = config
         self.user_profile_link = self.get_user_profile_link_from_rss(rss_urls[0])
@@ -59,14 +59,13 @@ class Book_poster_creator:
     
     def get_user_profile_link_from_rss(self, rss_url: str) -> str:
         user_id = int(rss_url.split("?")[0].split("/")[-1])
-        link_to_user_profile = f"https://www.goodreads.com/user/show/{user_id}"
-        return link_to_user_profile
+        return f"https://www.goodreads.com/user/show/{user_id}"
         
     def filter_books_by_grid_size(self) -> None:
-        if self.books.size > self.layout.n_books_grid_total:
-            warnings.warn(f"Warning: The current poster grid only supports {self.layout.n_books_grid_total} books. {self.books.size - self.layout.n_books_grid_total} books are not included.", DeprecationWarning)
+        if self.books.size > self.layout.grid.n_books_total:
+            warnings.warn(f"Warning: The current poster grid only supports {self.layout.grid.n_books_total} books. {self.books.size - self.layout.grid.n_books_total} books are not included.", DeprecationWarning)
             # Removing the first books to only include the books read last in the poster.
-            self.books = self.books[-self.layout.n_books_grid_total:]
+            self.books = self.books[-self.layout.grid.n_books_total:]
             self.config.start_date = datetime.strptime(self.books[0]['user_read_at'], '%a, %d %b %Y %H:%M:%S %z')
 
     def download_covers(self, COVER_URL_KEY: str ='book_large_image_url', PATH_TO_COVERS='./covers') -> None:
@@ -88,17 +87,17 @@ class Book_poster_creator:
 
         # Create a blank poster
         print('Creating poster...')
-        poster_image = Image.new("RGB", self.layout.poster_dim.dim_px, self.layout.background_color_hex)
+        poster_image = Image.new("RGB", self.layout.poster.dim.dim_px, self.layout.poster.background_color_hex)
         draw = ImageDraw.Draw(poster_image)
 
         # Object for adding the title and signature/footer text to the poster
-        if self.layout.print_title or self.layout.print_signature:
+        if self.layout.title.enable or self.layout.signature.enable:
             text_creator = Auxiliary_text_creator(self.layout, self.config)
         # Adding the title
-        if self.layout.print_title:
+        if self.layout.title.enable:
             text_creator.add_title(draw)
         # Adding the signature
-        if self.layout.print_signature:
+        if self.layout.signature.enable:
             user_name = self.books[0]['user_name']
             text_creator.add_left_signature(self.user_profile_link, poster_image, draw, user_name=user_name)
             text_creator.add_right_signature(poster_image, draw)
@@ -112,7 +111,7 @@ class Book_poster_creator:
         print('Adding books to poster...')
         for book_index, book in enumerate(self.books):
             # Check if the grid is already full
-            assert (book_index + 1 <= self.layout.n_books_grid_total), "More books than the poster can handle!"
+            assert (book_index + 1 <= self.layout.grid.n_books_total), "More books than the poster can handle!"
 
             # Grid position of the current cover
             row, col = self.grid_position(book_index)
@@ -129,8 +128,8 @@ class Book_poster_creator:
         print('Done!')
 
     def grid_position(self, i):
-        row = i // self.layout.n_books_grid[H]
-        col = i % self.layout.n_books_grid[H]
+        row = i // self.layout.grid.n_books[H]
+        col = i % self.layout.grid.n_books[H]
         return row,col
 
     def add_book_text(self, draw, book, row, col):
@@ -139,7 +138,7 @@ class Book_poster_creator:
         if book['user_read_at'] != '':
             text, align_multiline = self.config.get_book_str(book)
             text_position = self.layout.get_cover_text_position(col, row, [text], line_index=0)
-            draw.text(text_position.dim_px, text, fill="black", font=self.layout.book_font, align=align_multiline, anchor='ma')
+            draw.text(text_position.dim_px, text, fill="black", font=self.layout.book.font, align=align_multiline, anchor='ma')
 
     def add_cover_to_poster(self, poster_image, draw, book, row, col) -> None:
         # Load cover image
@@ -158,12 +157,12 @@ class Book_poster_creator:
         '''Resampling the cover images with the appropriate resolution'''
         aspect_ratio = cover_image.size[H] / cover_image.size[V]
         # If the cover's aspect ratio is similar to the optimal aspect ratio, the cover is stretched.
-        if np.maximum(aspect_ratio/self.layout.default_aspect_ratio, self.layout.default_aspect_ratio/aspect_ratio) < 1.2:
-            cover_image_size = self.layout.cover_area.dim_px
-        elif (self.layout.default_aspect_ratio < aspect_ratio):
-            cover_image_size = (self.layout.cover_area.width_px, np.round(self.layout.cover_area.width_px / aspect_ratio).astype(int))
+        if np.maximum(aspect_ratio/self.layout.book.default_aspect_ratio, self.layout.book.default_aspect_ratio/aspect_ratio) < self.config.aspect_ratio_stretch_tolerance:
+            cover_image_size = self.layout.book.cover_area.dim_px
+        elif (self.layout.book.default_aspect_ratio < aspect_ratio):
+            cover_image_size = (self.layout.book.cover_area.width_px, np.round(self.layout.book.cover_area.width_px / aspect_ratio).astype(int))
         else:
-            cover_image_size = (np.round(self.layout.cover_area.height_px() * aspect_ratio).astype(int), self.layout.cover_area.height_px())
+            cover_image_size = (np.round(self.layout.book.cover_area.height_px() * aspect_ratio).astype(int), self.layout.book.cover_area.height_px())
         cover_image = cover_image.resize(cover_image_size, Image.BICUBIC)
         return cover_image
 
@@ -191,7 +190,7 @@ class Book_loader:
             books = np.concatenate((books, books_from_feed))
         books = np.array(list({b['book_id']:b for b in books}.values())) # removing duplicates
         if books.size == 0:
-            exit(f"No books found in the feeds. Please check the feeds and try again.")
+            exit("No books found in the feeds. Please check the feeds and try again.")
         return books
     
     def sort_books(self, books: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -224,27 +223,21 @@ class Year_shader:
         self.layout = layout
 
     def shade_years(self, books: np.ndarray, draw: ImageDraw) -> None:
-        # Unimplemented feature to add a line between the shaded areas
-        # if self.layout.separator_width_factor == 0:
-        # half_separator_wdth = 0
-        # else:
-        #     half_separator_width = int(self.layout.cover_area.width_px*self.layout.separator_width_factor/2.)+1
         years, row_first_book_in_year, col_first_book_in_year = self.get_grid_index_of_first_books_in_years(books)
         for y in range(years.size-1):
             for row in range(row_first_book_in_year[y], row_first_book_in_year[y+1] + 1):
                 start_col, end_col = self.get_grid_col_indices_in_row(row, y, row_first_book_in_year, col_first_book_in_year)
-                # print(f'year index {y}, row {row}, start_col {start_col}, end_col {end_col}')
-                if ((row == row_first_book_in_year[y+1]) and (end_col == self.layout.n_books_grid[H] - 1)) or (row >= self.layout.n_books_grid[V]):
+                if ((row == row_first_book_in_year[y+1]) and (end_col == self.layout.grid.n_books[H] - 1)) or (row >= self.layout.grid.n_books[V]):
                     continue
-                else:
-                    if y % 2 == 0:
-                        color = self.layout.year_shading_color1_hex
-                    else:
-                        color = self.layout.year_shading_color2_hex
-                    if color != self.layout.background_color_hex:
-                        start_position   = self.layout.get_shading_start_position(start_col, row)
-                        end_position     = self.layout.get_shading_end_position(end_col, row)
-                        draw.rectangle((start_position.xy_px, end_position.xy_px), fill=color, outline=None)
+                color = (
+                    self.layout.year_shading.color1_hex
+                    if y % 2 == 0
+                    else self.layout.year_shading.color2_hex
+                )
+                if color != self.layout.poster.background_color_hex:
+                    start_position   = self.layout.get_shading_start_position(start_col, row)
+                    end_position     = self.layout.get_shading_end_position(end_col, row)
+                    draw.rectangle((start_position.xy_px, end_position.xy_px), fill=color, outline=None)
 
     def get_grid_col_indices_in_row(self, row: int, y: int, row_first_book_in_year: np.ndarray, col_first_book_in_year: np.ndarray) -> tuple[int,int]:
         if row == row_first_book_in_year[y]:
@@ -254,7 +247,7 @@ class Year_shader:
         if row == row_first_book_in_year[y+1] and start_col < col_first_book_in_year[y+1]:
             end_col = col_first_book_in_year[y+1] - 1
         else:
-            end_col = self.layout.n_books_grid[H] - 1
+            end_col = self.layout.grid.n_books[H] - 1
         return start_col, end_col
 
     def get_grid_index_of_first_books_in_years(self, books: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -269,19 +262,15 @@ class Year_shader:
             if years[-1] < current_year: # New year
                 years.append(current_year)
                 # Grid position of the current cover
-                row = b // self.layout.n_books_grid[H]
-                col = b % self.layout.n_books_grid[H]
-                row_first_book_in_year.append(row)
-                col_first_book_in_year.append(col)
+                row_first_book_in_year.append(b // self.layout.grid.n_books[H])
+                col_first_book_in_year.append(b % self.layout.grid.n_books[H])
         # Dummy for the end of the grid
         b = b + 1
         years.append(current_year+1)
-        row = b // self.layout.n_books_grid[H]
-        col = b % self.layout.n_books_grid[H]
-        row_first_book_in_year.append(row)
-        col_first_book_in_year.append(col)
-        # np array conversion
-        years = np.array(years, dtype=int) 
+        row_first_book_in_year.append(b // self.layout.grid.n_books[H])
+        col_first_book_in_year.append(b % self.layout.grid.n_books[H])
+
+        years                  = np.array(years, dtype=int) 
         row_first_book_in_year = np.array(row_first_book_in_year, dtype=int)
         col_first_book_in_year = np.array(col_first_book_in_year, dtype=int)
         return years, row_first_book_in_year, col_first_book_in_year
@@ -293,12 +282,12 @@ class Auxiliary_text_creator:
         
     def add_title(self, draw):
         title_position = self.layout.get_title_position()
-        draw.text(title_position.dim_px, self.config.get_title_str(), font=self.layout.title_font, fill="black", anchor='ma')
+        draw.text(title_position.dim_px, self.config.get_title_str(), font=self.layout.title.font, fill="black", anchor='ma')
 
     def add_right_signature(self, poster_image, draw):
         signature_text_position = self.layout.get_signature_text_position_right()
         signature_qr_code_position = self.layout.get_signature_position_right()
-        draw.text(signature_text_position.xy_px, self.config.credit_str, font=self.layout.signature_font, fill="black", align='right', anchor='rm')
+        draw.text(signature_text_position.xy_px, self.config.credit_str, font=self.layout.signature.font, fill="black", align='right', anchor='rm')
         qr_code = self.create_qr_code(self.config.credit_url, self.layout.get_qr_code_size().dim_px[0])
         poster_image.paste(qr_code, signature_qr_code_position.xy_px)
 
@@ -306,7 +295,7 @@ class Auxiliary_text_creator:
         signature_str = f'Follow {user_name} on Goodreads!'
         signature_text_position = self.layout.get_signature_text_position_left()
         signature_qr_code_position = self.layout.get_signature_position_left()
-        draw.text(signature_text_position.xy_px, signature_str, font=self.layout.signature_font, fill="black", align='left', anchor='lm')
+        draw.text(signature_text_position.xy_px, signature_str, font=self.layout.signature.font, fill="black", align='left', anchor='lm')
         qr_code = self.create_qr_code(user_profile_link, self.layout.get_qr_code_size().dim_px[0])
         poster_image.paste(qr_code, signature_qr_code_position.xy_px)
         
