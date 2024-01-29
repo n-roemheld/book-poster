@@ -5,7 +5,7 @@
 
 
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime
 import os
 from os.path import exists
 import urllib
@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 import feedparser
 import poster_config
-from Dimensions_file import Dimensions, Dimensions_cm, Dimensions_px
+from Dimensions_file import Dimensions
 import layout_generator
 
 H = 0 # horizontal index
@@ -223,11 +223,6 @@ class Year_shader:
         self.layout = layout
 
     def shade_years(self, books: np.ndarray, draw: ImageDraw) -> None:
-        # Unimplemented feature to add a line between the shaded areas
-        # if self.layout.separator_width_factor == 0:
-        # half_separator_wdth = 0
-        # else:
-        #     half_separator_width = int(self.layout.book.cover_area.width_px*self.layout.separator_width_factor/2.)+1
         years, row_first_book_in_year, col_first_book_in_year = self.get_grid_index_of_first_books_in_years(books)
         for y in range(years.size-1):
             for row in range(row_first_book_in_year[y], row_first_book_in_year[y+1] + 1):
