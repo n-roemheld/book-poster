@@ -405,8 +405,8 @@ class PosterLayout:
         self, cover_index_H: int, cover_index_V: int, cover_size: Dimensions
     ) -> Position:
         cover_area_position = self.get_cover_area_position(cover_index_H, cover_index_V)
-        cover_offset = self.book.cover_area.add(cover_size.scale(-1)).scale(0.5)
-        return cover_area_position.add(cover_offset)
+        cover_offset = (self.book.cover_area - cover_size).scale(0.5)
+        return cover_area_position + cover_offset
 
     def get_cover_text_position(
         self,

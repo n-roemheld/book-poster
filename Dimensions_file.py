@@ -105,7 +105,7 @@ class Dimensions:
     def height_cm(self) -> int:
         return self.dim_cm.height
 
-    def add(self, other: "Dimensions") -> "Dimensions":
+    def __add__(self, other: "Dimensions") -> "Dimensions":
         assert self._dpi == other._dpi, "DPI mismatch"
         return Dimensions(
             self.width_cm + other.width_cm,
@@ -113,6 +113,9 @@ class Dimensions:
             unit="cm",
             dpi=self._dpi,
         )
+    
+    def __sub__(self, other: "Dimensions") -> "Dimensions":
+        return self + other.scale(-1)
 
     def scale(self, factor: float) -> "Dimensions":
         return Dimensions(
