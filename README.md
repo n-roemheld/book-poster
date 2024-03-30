@@ -2,7 +2,7 @@
 Create a poster with the book covers from your 'read' shelf on goodreads.com. 
 General and personal information can be added beneath each cover, like the number of pages, average rating, your rating, and your read date.
 
-![grafik](https://raw.githubusercontent.com/n-roemheld/book-poster/main/poster_test.jpg)
+![grafik](https://raw.githubusercontent.com/n-roemheld/book-poster/main/output/poster_test.jpg)
 
 # How to use
 Paste the URL of your 'Read' shelf/shelves into the text file `input/shelf_urls_test.txt` and run the `run_windows.bat` on Windows or the `run_linux.sh` on Linux or Mac.
