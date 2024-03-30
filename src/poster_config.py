@@ -8,8 +8,8 @@ from Dimensions_file import Dimensions_cm
 class Config:
     DEFAULT_READ_DATE = datetime(year=1900, month=1, day=1, tzinfo=timezone.utc)
 
-    input_rss_file: str = "rss_urls.txt"
-    output_file: str = "poster.jpg"
+    input_rss_file: str = "./input/rss_urls.txt"
+    output_file: str = "./output/poster.jpg"
 
     aspect_ratio_stretch_tolerance = 1.15  # tol > 1. Max. rel. difference between the larger a.r. to the smaller one.
 
