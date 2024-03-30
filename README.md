@@ -16,3 +16,5 @@ The settings and parameters for the poster are located in the poster_cofig.py fi
 
 Note: This was only tested with Python 3.12 yet. Compatibility with earlier Python versions is not guaranteed.
 Required modules: feedparser, PIL, numpy
+
+I do not own any copyrights to the fonts. Original copyrights apply.

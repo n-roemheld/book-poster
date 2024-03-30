@@ -6,6 +6,7 @@
 
 import warnings
 from datetime import datetime
+import sys
 import os
 from os.path import exists
 import urllib
@@ -23,6 +24,7 @@ INCH_IN_CM = 2.54
 
 def main() -> None:
     """Creates a poster with the book covers of a 'read' shelf on goodreads using RSS feeds"""
+    check_python_version()
     # List of RSS-feeds to use
     # Warning: Goodreads only supports upto 100 books per rss feed!
     #          Recommended: To get the 100 books you read last, add '&sort=user_read_at' at the end of the rss url.
@@ -457,6 +459,9 @@ class Auxiliary_text_creator:
         img = qr.make_image(fill="black", back_color="white")
         return img.resize((size_px, size_px), Image.BICUBIC)
 
+def check_python_version():
+    if sys.version_info[0] != 3 or sys.version_info[1] < 12:
+        warnings.warn("This script may require Python version 3.12.")
 
 if __name__ == "__main__":
     main()

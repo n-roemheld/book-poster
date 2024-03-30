@@ -1,0 +1,3 @@
+feedparser==6.0.0
+numpy==1.26.0
+PIL==10.1.0
