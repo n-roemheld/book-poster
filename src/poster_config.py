@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from dataclasses import dataclass
 import numpy as np
+from typing import Tuple
 from dimensions import Dimensions_cm
 
 
@@ -8,7 +9,7 @@ from dimensions import Dimensions_cm
 class Config:
     DEFAULT_READ_DATE = datetime(year=1900, month=1, day=1, tzinfo=timezone.utc)
 
-    input_rss_file: str = "./input/rss_urls.txt"
+    input_rss_file: str = "./input/gr_shelf_urls.txt"
     output_file: str = "./output/poster.jpg"
 
     aspect_ratio_stretch_tolerance = 1.15  # tol > 1. Max. rel. difference between the larger a.r. to the smaller one.
@@ -24,7 +25,7 @@ class Config:
     def get_title_str(self):
         return f"Books read between {str(self.start_date.date())} and {str(self.end_date.date())}"
 
-    def get_book_str(self, book: dict) -> tuple[str, str]:
+    def get_book_str(self, book: dict) -> Tuple[str, str]:
         # Available information in book (examples):
         # 'title', 'author_name', 'book_published', 'num_pages', 'average_rating', 'user_rating',
         # 'user_read_at', 'user_date_created', 'user_date_added'
@@ -53,14 +54,14 @@ class Config:
 @dataclass
 class ConfigLayout:
 
+    grid = {}
+    grid["n_books"]: Tuple[int, int] = (8, 8) # Number of books (horizontal, vertical)
+    grid["cover_dist_factor"] = np.array([0.01, 0.01])  # of cover width, height
+
     poster = {}
-    poster["background_color_hex"]: str = "#FFFFFF"
     poster["dim"]: Dimensions_cm = Dimensions_cm(width=60, height=90)
     poster["min_margins_factor"] = 0.01 * np.array([1, 1, 1])  # of poster height
-
-    grid = {}
-    grid["n_books"]: tuple[int, int] = (8, 8)
-    grid["cover_dist_factor"] = np.array([0.01, 0.01])  # of cover width, height
+    poster["background_color_hex"]: str = "#FFFFFF"
 
     year_shading = {}
     year_shading["enable"]: bool = True
@@ -70,14 +71,10 @@ class ConfigLayout:
 
     book = {}
     book["rating_print"]: bool = True
-    book["default_aspect_ratio"]: float = 0.6555
     book["font_path"]: str = "./fonts/Lato-star.ttf"
-    book[
-        "expected_cover_height"
-    ]: (
-        int
-    ) = 475  # px, common height of cover images on goodreads, used for dpi calculations
-    book["shadow_factors"] = np.array([0.03, 0.06])  # of cover width, height
+    book["default_aspect_ratio"]: float = 0.6555 # target cover aspect ratio, median of a large set
+    book["expected_cover_height"]: (int) = 475  # px, common height of cover images on GR, used for dpi calculations
+    book["shadow_factors"] = np.array([0.03, 0.06])  # of cover width, height | not implemented yet
     book["font_height_factor"]: float = 1 / 15.0  # of cover height
     book["font_vspace_factor"]: float = 1 / 4.0  # of font height
 

@@ -1,6 +1,7 @@
 from datetime import datetime
 import numpy as np
 from PIL import ImageDraw
+from typing import Tuple
 import layout_generator
 from constants import *
 
@@ -47,7 +48,7 @@ class Year_shader:
         y: int,
         row_first_book_in_year: np.ndarray,
         col_first_book_in_year: np.ndarray,
-    ) -> tuple[int, int]:
+    ) -> Tuple[int, int]:
         if row == row_first_book_in_year[y]:
             start_col = col_first_book_in_year[y]
         else:
@@ -63,7 +64,7 @@ class Year_shader:
 
     def get_grid_index_of_first_books_in_years(
         self, books: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         # Add first book/year
         years = [
             int(

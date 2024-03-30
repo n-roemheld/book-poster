@@ -12,6 +12,7 @@ from os.path import exists
 import urllib
 import numpy as np
 from PIL import Image, ImageDraw
+from typing import Tuple, List
 import poster_config
 from dimensions import Dimensions
 import layout_generator
@@ -36,7 +37,7 @@ def main() -> None:
     creator.create_poster_image()
 
 
-def read_rss_urls(input_rss_file: str) -> list[str]:
+def read_rss_urls(input_rss_file: str) -> List[str]:
     with open(input_rss_file) as f:
         rss_urls = [
             line.strip().strip("-,.:;!#$%^&*_=+<>'\" ") for line in f.readlines()
@@ -57,7 +58,7 @@ class Book_poster_creator:
         self,
         layout: layout_generator.PosterLayout,
         config: poster_config.Config,
-        rss_urls: list[str],
+        rss_urls: List[str],
     ) -> None:
         self.layout = layout
         self.config = config
@@ -203,7 +204,7 @@ class Book_poster_creator:
 
     def resize_cover_image(
         self, cover_image: Image.Image
-    ) -> tuple[Image.Image, tuple[int, int]]:
+    ) -> Tuple[Image.Image, Tuple[int, int]]:
         """Resampling the cover images with the appropriate resolution"""
         aspect_ratio = cover_image.size[H] / cover_image.size[V]
         # If the cover's aspect ratio is similar to the optimal aspect ratio, the cover is stretched.
@@ -235,8 +236,8 @@ class Book_poster_creator:
 
 
 def check_python_version():
-    if sys.version_info[0] != 3 or sys.version_info[1] < 12:
-        warnings.warn("This script may require Python version 3.12.")
+    if sys.version_info[0] != 3 or sys.version_info[1] < 8:
+        warnings.warn("This script may require Python version 3.8.")
 
 if __name__ == "__main__":
     main()

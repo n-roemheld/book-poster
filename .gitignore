@@ -1,6 +1,7 @@
 # Project files
 covers/*
 rss_urls.txt
+gr_shelf_urls.txt
 poster.jpg
 
 # Byte-compiled / optimized / DLL files

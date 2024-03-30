@@ -1,6 +1,7 @@
 from datetime import datetime
 import numpy as np
 import feedparser
+from typing import Tuple
 import poster_config
 
 class Book_loader:
@@ -34,7 +35,7 @@ class Book_loader:
             exit("No books found in the feeds. Please check the feeds and try again.")
         return books
 
-    def sort_books(self, books: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def sort_books(self, books: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Reordering books by read date"""
         read_at_list = []
         for book in books:
