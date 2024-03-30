@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from typing import Literal
-from Dimensions_file import Dimensions, Length, Position
+from dimensions import Dimensions, Length, Position
 from poster_config import Config, ConfigLayout
 
 H = 0  # horizontal index

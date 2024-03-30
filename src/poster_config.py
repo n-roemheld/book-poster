@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from dataclasses import dataclass
 import numpy as np
-from Dimensions_file import Dimensions_cm
+from dimensions import Dimensions_cm
 
 
 @dataclass

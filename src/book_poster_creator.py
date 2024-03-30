@@ -13,7 +13,7 @@ import urllib
 import numpy as np
 from PIL import Image, ImageDraw
 import poster_config
-from Dimensions_file import Dimensions
+from dimensions import Dimensions
 import layout_generator
 from book_loader import Book_loader
 from year_shader import Year_shader
